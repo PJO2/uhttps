@@ -34,7 +34,7 @@ const char SYNTAX[] = ""
 "\n      --tls         enable TLS (HTTPS)\n"
 "\n      --cert FILE   path to PEM certificate (fullchain)\n"
 "\n      --key  FILE   path to PEM private key\n"
-"\n      --tls-port P  TLS port (default 443)\n"
+"\n      --tls-port P  TLS port (default 8443)\n"
 "\n      --redirect-http  when TLS is enabled, redirect plain HTTP to https://\n"
 "\n";
 
@@ -55,7 +55,7 @@ typedef int            BOOL;
 #include "uhttps.h"
 #include "log.h"
 
-sSettings = { WARN, FALSE,                            // logging
+struct S_Settings sSettings = { WARN, FALSE,                            // logging
                  DEFAULT_MAXTHREADS, FALSE,              // system
                  TRUE, TRUE, NULL,                     // Global Network
                  DEFAULT_HTTP_PORT,                      // HTTP settings
