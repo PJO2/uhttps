@@ -1,38 +1,16 @@
 // --------------------------------------------------------
-// uweb : a minimal web server which compile under MacOS, Linux and Windows
-// by Ph. Jounin November 2019
+// uhttps : a minimal web server which compile under MacOS, Linux and Windows
+// by Ph. Jounin September 2029
 // 
 // License: GPLv2
 // Sources : 
 //              - nweb23.c from IBM and Nigel Griffiths
 //              - mweb.cpp from Ph. Jounin
+//              - uweb.cpp from Ph. Jounin
 // ---------------------------------------------------------
 
 
 // Changes:
-// from 1.3
-//  - add reuse port and reuse address socket option
-//  - add HEAD request processing
-//  - display the incoming request with the -vv option
-//  - change buffer size to 5 x MSS
-// from 1.4
-// - display time spent after a tranfer
-// from 1.5
-// - file not found: earlier detection
-// - add mentions of -ct and -cb in unspported media type report
-// - header Server change from mweb to uweb
-// - add option -V to display version
-// from 1.6
-// - encapsulate all terminal outputs into function log
-// - change default log level to WARN (and add -quiet option)
-// - data and structures sent to h files
-// - Windows release compiled with Pelles C
-// - set hFile pointer to INVALID_FILE_VALUE after dry run opening
-// from 1.7
-// - add timestamp into log (option -t)
-// - improve handling of -c (-cn did not trigger an error, instead it skipped next param)
-// - display MSS in debug mode
-// - change display for headers/request in debug mode
 
 
 const char SYNTAX[] = ""
@@ -41,10 +19,10 @@ const char SYNTAX[] = ""
 "\n        [-g msec] [-s max connections] [-verbose] [-quiet] [-x file]\n"
 "\n      -4   IPv4 only"
 "\n      -6   IPv6 only"
+"\n      -d   base directory for content (default is current directory)"
 "\n      -c   content-type assigned to unknown files"
 "\n           (default: reject unregistered types)"
 "\n           [-ct: default text/plain], [-cb: default application/octet-stream]"
-"\n      -d   base directory for content (default is current directory)"
 "\n      -g   slow down transfer by waiting for x msc between two frames"
 "\n      -i   listen only this address"
 "\n      -p   HTTP port (defaut is 8080)"
@@ -53,6 +31,11 @@ const char SYNTAX[] = ""
 "\n      -v   verbose (can be used up to 5 times)"
 "\n      -V   display version and exit"
 "\n      -x   set the default page for a directory (default is index.html)"
+"\n      --tls         enable TLS (HTTPS)\n"
+"\n      --cert FILE   path to PEM certificate (fullchain)\n"
+"\n      --key  FILE   path to PEM private key\n"
+"\n      --tls-port P  TLS port (default 443)\n"
+"\n      --redirect-http  when TLS is enabled, redirect plain HTTP to https://\n"
 "\n";
 
 #define _CRT_SECURE_NO_WARNINGS	1
@@ -72,7 +55,14 @@ typedef int            BOOL;
 #include "uweb.h"
 #include "log.h"
 
-struct S_Settings sSettings = { WARN, FALSE, FALSE, FALSE, DEFAULT_PORT, NULL, ".", DEFAULT_HTMLFILE, NULL, DEFAULT_MAXTHREADS, FALSE };
+sSettings = { WARN, FALSE,                            // logging
+                 DEFAULT_MAXTHREADS, FALSE,              // system
+                 FALSE, FALSE, NULL,                     // Global Network
+                 DEFAULT_HTTP_PORT,                      // HTTP settings
+                 TRUE, "cert.pem", "private.key", DEFAULT_TLS_PORT, FALSE, // tls settings
+                 ".", DEFAULT_HTMLFILE, NULL             // HTML settings
+               };
+
 
 
 
@@ -87,6 +77,7 @@ void BAD_PARAMS()
     exit(1);
 
 } // BAD_PARAMS
+
 
   // process args (mostly populate settings structure)
   // loosely processed : user can crash with invalid args...
@@ -117,7 +108,7 @@ int ParseCmdLine(int argc, char *argv[])
 			case 'd': sSettings.szDirectory = argv[++ark];         break;
 			case 'g': sSettings.slow_down   = atoi(argv[++ark]);   break;
 			case 'i': sSettings.szBoundTo   = argv[++ark];         break;
-			case 'p': sSettings.szPort      = argv[++ark];         break;
+			case 'p': sSettings.szHTTPPort  = argv[++ark];         break;
 			case 'q': sSettings.uVerbose--;                        break;
 			case 's': sSettings.max_threads = atoi(argv[++ark]);   break;
 			case 'v': for (idx=1;  argv[ark][idx]=='v' ; idx++) 
@@ -129,6 +120,17 @@ int ParseCmdLine(int argc, char *argv[])
                                   exit(0);
 			case 'x': sSettings.szDefaultHtmlFile = argv[++ark];   break;
 				  break;
+                        case '-': if (strcmp(argv[ark], "--tls")==0)
+                                       sSettings.bTLS = TRUE;
+                                  if (strcmp(argv[ark], "--cert")==0)
+                                       sSettings.tls_cert = argv[++ark];
+                                  if (strcmp(argv[ark], "--key")==0)
+                                       sSettings.tls_key = argv[++ark];
+                                  if (strcmp(argv[ark], "--tls-port")==0)
+                                       sSettings.szTlsPort = argv[ark++];
+                                  if ((strcmp(argv[ark], "--redirect-http") == 0) 
+                                       sSettings.bRedirectHttp = TRUE;
+                                  break;
 			default:  BAD_PARAMS();
 
 			} // switch
@@ -142,11 +144,25 @@ int ParseCmdLine(int argc, char *argv[])
 } // ParseCmdLine
 
 
+// check that args are ok
+int SanityChecks (const struct S_Settings *p)
+{
+   if (p->bTLS) {
+        if (!p->tls_cert || !p->tls_key) {
+            fprintf(stderr, "TLS enabled but --cert/--key not both provided\n");
+            return -1;
+        }
+    }
+}
+
+
 
   // main program : read args, create listening socket and wait for incoming connections
 int main(int argc, char *argv[])
 {
 	ParseCmdLine(argc, argv); // override default settings
+        if (! SanityChecks (& sSettings))
+                exit(1);
 
 	if (! Setup ())
 		exit(1);
