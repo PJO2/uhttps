@@ -14,7 +14,7 @@
 #include <time.h>
 #include "log.h"
 
-// from uweb.h
+// from uhttps.h
 extern struct S_Settings
 {
 	int   uVerbose;

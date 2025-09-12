@@ -14,9 +14,9 @@
 
 
 const char SYNTAX[] = ""
-"uweb: Usage\n"
-"\n uweb   [-4|-6] [-p port] [-d dir] [-i addr] [-c content-type|-ct|-cb]"
-"\n        [-g msec] [-s max connections] [-verbose] [-quiet] [-x file]\n"
+"uhttps: Usage\n"
+"\n uhttps   [-4|-6] [-p port] [-d dir] [-i addr] [-c content-type|-ct|-cb]"
+"\n          [-g msec] [-s max connections] [-verbose] [-quiet] [-x file]\n"
 "\n      -4   IPv4 only"
 "\n      -6   IPv6 only"
 "\n      -d   base directory for content (default is current directory)"
@@ -52,14 +52,14 @@ const char SYNTAX[] = ""
 typedef int            BOOL;
 #endif 
 
-#include "uweb.h"
+#include "uhttps.h"
 #include "log.h"
 
 sSettings = { WARN, FALSE,                            // logging
                  DEFAULT_MAXTHREADS, FALSE,              // system
-                 FALSE, FALSE, NULL,                     // Global Network
+                 TRUE, TRUE, NULL,                     // Global Network
                  DEFAULT_HTTP_PORT,                      // HTTP settings
-                 TRUE, "cert.pem", "private.key", DEFAULT_TLS_PORT, FALSE, // tls settings
+                 FALSE, "cert.pem", "private.key", DEFAULT_TLS_PORT, FALSE, // tls settings
                  ".", DEFAULT_HTMLFILE, NULL             // HTML settings
                };
 
@@ -116,20 +116,21 @@ int ParseCmdLine(int argc, char *argv[])
                                   break;
 			case 't' : sSettings.timestamp = TRUE;                 break;
 			case 'V': sSettings.uVerbose = INFO;
-                                  LOG (INFO, "uweb version %s\n", UWEB_VERSION);
+                                  LOG (INFO, "uhttps version %s\n", UHTTPS_VERSION);
                                   exit(0);
 			case 'x': sSettings.szDefaultHtmlFile = argv[++ark];   break;
 				  break;
                         case '-': if (strcmp(argv[ark], "--tls")==0)
                                        sSettings.bTLS = TRUE;
-                                  if (strcmp(argv[ark], "--cert")==0)
+                                  else if (strcmp(argv[ark], "--cert")==0)
                                        sSettings.tls_cert = argv[++ark];
-                                  if (strcmp(argv[ark], "--key")==0)
+                                  else if (strcmp(argv[ark], "--key")==0)
                                        sSettings.tls_key = argv[++ark];
-                                  if (strcmp(argv[ark], "--tls-port")==0)
-                                       sSettings.szTlsPort = argv[ark++];
-                                  if ((strcmp(argv[ark], "--redirect-http") == 0) 
+                                  else if (strcmp(argv[ark], "--tls-port")==0)
+                                       sSettings.szTlsPort = argv[++ark];
+                                  else if (strcmp(argv[ark], "--redirect-http") == 0) 
                                        sSettings.bRedirectHttp = TRUE;
+                                  else BAD_PARAMS();
                                   break;
 			default:  BAD_PARAMS();
 
@@ -150,9 +151,10 @@ int SanityChecks (const struct S_Settings *p)
    if (p->bTLS) {
         if (!p->tls_cert || !p->tls_key) {
             fprintf(stderr, "TLS enabled but --cert/--key not both provided\n");
-            return -1;
+            return FALSE;
         }
-    }
+   }
+   return TRUE;
 }
 
 

@@ -8,7 +8,7 @@
 // --------------------------------------------------------
 
 
-#define UWEB_VERSION "1.8"
+#define UHTTPS_VERSION "1.0"
 
 #ifndef FALSE
 #  define FALSE (0==1)

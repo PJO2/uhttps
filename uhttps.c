@@ -31,12 +31,6 @@
 
 #define INVALID_FILE_VALUE NULL
 
-struct S_tls_conn {
-    int   fd;
-    int   is_tls;
-    SSL  *ssl;  /* NULL for plain HTTP */
-} ;
-static SSL_CTX *g_tls_ctx = NULL;
 
 
 // ---------------------------------------------------------
@@ -199,7 +193,7 @@ int CloseHandle (THREAD_ID ThId)             { return 0; }
 // ---------------------------------------------------------
 
 #include "log.h"
-#include "uweb.h"
+#include "uhttps.h"
 #include "html_extensions.h"
 
   // ---------------------------------------------------------
@@ -215,7 +209,7 @@ enum     { HTTP_OK=200,
            HTTP_TYPENOTSUPPORTED=415,
            HTTP_SERVERERROR=500 };
 
-// requests processed by uweb
+// requests processed by uhttps
 enum {    HTTP_GET = 1,
               HTTP_HEAD,  };
 
@@ -238,7 +232,7 @@ sErrorCodes[] =
 };
 // HTML and HTTP message return on Error
 const char szHTMLErrFmt[]  = "<html><head>\n<title>%d %s</title>\n</head><body>\n<h1>%s</h1>\n%s\n</body></html>\n";
-const char szHTTPDataFmt[] = "HTTP/1.1 %d %s\nServer: uweb-%s\nContent-Length: %" PRIu64 "\nConnection: close\nContent-Type: %s\n\n";
+const char szHTTPDataFmt[] = "HTTP/1.1 %d %s\nServer: uhttps-%s\nContent-Length: %" PRIu64 "\nConnection: close\nContent-Type: %s\n\n";
 
 
   // ---------------------------------------------------------
@@ -248,12 +242,20 @@ const char szHTTPDataFmt[] = "HTTP/1.1 %d %s\nServer: uweb-%s\nContent-Length: %
 enum e_THREADSTATUS { THREAD_STATE_INIT, THREAD_STATE_RUNNING, THREAD_STATE_EXITING, THREAD_STATE_DOWN };
 typedef enum e_THREADSTATUS    THREADSTATUS ;
 
+typedef struct S_tls_conn {
+    SOCKET   skt;
+    BOOL     bTLS;
+    SSL     *ssl;  /* NULL for plain HTTP */
+} conn_t;
+
+static SSL_CTX *g_tls_ctx = NULL;
+
 // The structure for each transfer
 struct S_ThreadData
 {
         int         request;    // GET or HEAD
-        SOCKET      skt;                        // the transfer skt
-        SOCKADDR_STORAGE sa;            // keep track of the client
+        conn_t      conn;       // socket descripto and SSL info
+        SOCKADDR_STORAGE sa;                    // keep track of the client
         char       *buf;                        // buffer for communication allocated in main thread
         unsigned    buflen;                     // sizeof this buffer
         char        url_filename[MAX_PATH];     // URL to be retrieved
@@ -477,15 +479,15 @@ SOCKET BindServiceSocket(const char *port, const char *sz_bind_addr)
 // read, send and close wrappers
 static ssize_t io_read(conn_t *c, void *buf, size_t n) {
     return c->ssl ? SSL_read(c->ssl, buf, (int)n)
-                  : recv(c->fd, buf, n, 0);
+                  : recv(c->skt, buf, n, 0);
 }
 static ssize_t io_write(conn_t *c, const void *buf, size_t n) {
     return c->ssl ? SSL_write(c->ssl, buf, (int)n)
-                  : send(c->fd, buf, n, 0);
+                  : send(c->skt, buf, n, 0);
 }
 static void conn_close(conn_t *c) {
     if (c->ssl) { SSL_shutdown(c->ssl); SSL_free(c->ssl); c->ssl = NULL; }
-    if (c->fd >= 0) { close(c->fd); c->fd = -1; }
+    if (c->skt >= 0) { close(c->skt); c->skt = INVALID_SOCKET; }
 }
 
 
@@ -498,7 +500,7 @@ static void conn_close(conn_t *c) {
   /////////////////////////////////////////////////////////////////
 
 // util: send an pre formated error code
-int HTTPSendError(SOCKET skt, int HttpStatusCode)
+int HTTPSendError(conn_t *c, int HttpStatusCode)
 {
         char szContentBuf[512], szHTTPHeaders[256];
         int  ark;
@@ -520,8 +522,8 @@ int HTTPSendError(SOCKET skt, int HttpStatusCode)
                 	UWEB_VERSION,
                 	(DWORD64) strlen (szContentBuf),
                 	"text/html" );
-        iResult = send (skt, szHTTPHeaders, strlen (szHTTPHeaders), 0);
-        iResult = send (skt, szContentBuf,  strlen (szContentBuf),  0);
+        iResult = io_write (c, szHTTPHeaders, strlen (szHTTPHeaders), 0);
+        iResult = io_write (c, szContentBuf,  strlen (szContentBuf),  0);
         return iResult;
 } // HTTPSendError
 
@@ -553,7 +555,7 @@ int LogTransfer(const struct S_ThreadData *pData, int when, int http_status)
 	switch (when)
 	{
 	    case LOG_BEGIN:
-                LOG (DEBUG, "uweb answers with headers:\n--->>\n%s--->>\n", pData->buf);
+                LOG (DEBUG, "uhttps answers with headers:\n--->>\n%s--->>\n", pData->buf);
                 LOG (WARN, "From %s:%s, GET %s, MSS is %u, burst size %d\n", 
 			szAddr, szServ, pData->file_name, GetSocketMSS(pData->skt), pData->buflen);
 		break;
@@ -732,14 +734,14 @@ THREAD_RET WINAPI HttpTransferThread(void * lpParam)
 	pData->ThStatus = THREAD_STATE_RUNNING;   // thread is now running
 
         // read http request
-	bytes_rcvd = recv(pData->skt, pData->buf, pData->buflen - 1, 0);
+	bytes_rcvd = io_read(& pData->conn, pData->buf, pData->buflen - 1, 0);
 	if (bytes_rcvd < 0)
 	{
 		LOG (ERROR, "Error in recv\nError %d (%s)\n", GetLastError(), LastErrorText());
 		goto cleanup;
 	}
 	// modify buffer size depending on MSS
-	if ( (tcp_mss = GetSocketMSS(pData->skt)) > 0 ) 
+	if ( (tcp_mss = GetSocketMSS(pData->conn.skt)) > 0 ) 
         {
 		pData->buflen = DEFAULT_BURST_PKTS * tcp_mss;
                 pData->buf = realloc (pData->buf, pData->buflen);
@@ -784,7 +786,7 @@ THREAD_RET WINAPI HttpTransferThread(void * lpParam)
 		UWEB_VERSION,
 		pData->qwFileSize,
 		pContentType);
-	send(pData->skt, pData->buf, strlen(pData->buf), 0);
+	io_write (& pData->conn, pData->buf, strlen(pData->buf), 0);
 	LogTransfer(pData, LOG_BEGIN, 0);
 
 	if (pData->request == HTTP_GET)
@@ -793,10 +795,10 @@ THREAD_RET WINAPI HttpTransferThread(void * lpParam)
 		do
 		{
 			bytes_read = fread(pData->buf, 1, pData->buflen, pData->hFile);
-			bytes_sent = send(pData->skt, pData->buf, bytes_read, 0);
+			bytes_sent = io_write(& pData->conn, pData->buf, bytes_read, 0);
 			pData->qwFileCurrentPos += bytes_read;
 
-			if (pData->buflen == bytes_read && IsTransferCancelledByPeer(pData->skt))
+			if (pData->buflen == bytes_read && IsTransferCancelledByPeer(pData->conn.skt))
 			{
 				LogTransfer(pData, LOG_RESET, HTTP_PARTIAL);
 				break;
@@ -819,11 +821,11 @@ THREAD_RET WINAPI HttpTransferThread(void * lpParam)
 	__DUMMY(bytes_sent);
 
 cleanup:
-	if (pData->skt != INVALID_SOCKET)
+	if (pData->conn.skt != INVALID_SOCKET)
 	{
 		if (iHttpStatus >= HTTP_BADREQUEST)   
-			HTTPSendError (pData->skt, iHttpStatus);
-		closesocket(pData->skt);
+			HTTPSendError (& pData->conn, iHttpStatus);
+		closesocket(pData->conn.skt);
 		pData->skt = INVALID_SOCKET;
 	}
 	if (pData->buf != NULL)
@@ -897,7 +899,7 @@ int ManageTerminatedThreads (void)
 } // ManageTerminatedThreads
 
 
-THREAD_ID StartHttpThread (SOCKET ClientSocket, const SOCKADDR_STORAGE *sa)
+THREAD_ID StartHttpThread (SOCKET ClientSocket, const SOCKADDR_STORAGE *sa, BOOL bTLS)
 {
 	struct S_ThreadData *pCur;
 
@@ -923,10 +925,27 @@ THREAD_ID StartHttpThread (SOCKET ClientSocket, const SOCKADDR_STORAGE *sa)
 		pCur->sa = * sa;
 		pCur->buflen = DEFAULT_BUFLEN;
 		pCur->buf = (char *) malloc (pCur->buflen);
-		pCur->skt = ClientSocket;
 		pCur->qwFileCurrentPos = 0;
 		time(& pCur->tStartTrf);
                 pCur->hFile = INVALID_FILE_VALUE;
+		pCur->conn.skt = ClientSocket;
+                pCur->conn.bTLS = bTLS;
+                if (pCur->conn.bTLS)
+                {
+                   pCur->conn.ssl = SSL_new(g_tls_ctx);
+                   if (pCur->conn.ssl==NULL) 
+                   {  
+                       LOG(ERR, "Can not init SSL connection");
+                       return INVALID_THREAD_VALUE;
+                   }
+                   SSL_set_fd(pCur->conn.ssl, ClientSocket);
+                   if (SSL_accept(pCur->conn.ssl) <= 0) 
+                   {
+                       LOG(ERR, "Can not accept SSL handshake");
+                       return INVALID_THREAD_VALUE;
+                   }
+                   LOG(INFO, "TLS %s / %s\n", SSL_get_version(pCur->conn.ssl), SSL_get_cipher(pCur->conn.ssl)); 
+                }
 
 		if (pCur->buf == NULL)
                 {
@@ -982,20 +1001,26 @@ void doLoop (void)
 
 	     // and listen incoming connections
              FD_ZERO (&readfs);
-             FD_SET (ListenSocket, &readfs);
+             if (HTTPListenSocket!=INVALID_SOCKET) FD_SET (HTTPListenSocket, &readfs);
+             if (TLSListenSocket!=INVALID_SOCKET)  FD_SET (TLSListenSocket, &readfs);
              tv_select.tv_sec  = SELECT_TIMEOUT;   // may have been changed by select
              tv_select.tv_usec = 0; 
-             Rc = select (ListenSocket+1, & readfs, NULL, NULL, & tv_select);
+             Rc = select (   max(HTTPListenSocket, TLSListenSocket)+1, 
+                           & readfs, NULL, NULL, 
+                           & tv_select);
         }
         while (Rc==0);  // 0 is timeout
 
 	if (Rc == INVALID_SOCKET) {
 		LOG (FATAL, "Error : Select failed\nError %d (%s)\n", GetLastError(), LastErrorText());
-		closesocket(ListenSocket);
+		closesocket(HTTPListenSocket);
+		closesocket(TLSListenSocket);
 		WSACleanup();
 		exit(1);
 	}
-
+        // A new connection has occurred, 
+        socket ListenSocket = FD_ISSET(HTTPListenSocket, &readfs) ? HTTPListenSocket :
+                              FD_ISSET(TLSListenSocket, &readfs) ? TLSListenSocket : INVALID_SOCKET;
 	// Accept new client connection (accept will not block)
 	sa_len = sizeof sa;
 	memset(&sa, 0, sizeof sa);
@@ -1007,9 +1032,10 @@ void doLoop (void)
 		exit(1);
 	}
 
-        // if main thread is awaken : start a new thread, check if a thread has terminated
+        // start a new thread, check if a thread has terminated
         // and return listening for incoming connections
-        NewThread = StartHttpThread (ClientSocket, & sa);
+        NewThread = StartHttpThread (ClientSocket, & sa, ListenSocket==TLSListenSocket);
+
 	// pause either to let thread start or to pause the main loop on error
         ssleep (NewThread== INVALID_THREAD_VALUE ? 1000 : 10);
 
@@ -1051,6 +1077,7 @@ int TLSInit (void)
     }
 } // TLSInit
 
+
 BOOL Setup (void)
 {
 char sbuf[MAX_PATH];
@@ -1060,6 +1087,7 @@ char sbuf[MAX_PATH];
         HTTPListenSocket = BindServiceSocket (sSettings.szHTTPPort, sSettings.szBoundTo);
         if (HTTPListenSocket == INVALID_SOCKET)
              return FALSE;
+
         if (sSettings.bTLS) 
         {
            if (TLSInit() == -1) 
@@ -1077,7 +1105,7 @@ char sbuf[MAX_PATH];
                return FALSE;
         }
         GetCurrentDirectory(sizeof sbuf, sbuf);
-        LOG (WARN, "uweb is listening on port %s, base directory is %s\n",      sSettings.szPort, sbuf);
+        LOG (WARN, "uhttps is listening on port %s, base directory is %s\n",      sSettings.szPort, sbuf);
 
         return TRUE;
 } // Setup 

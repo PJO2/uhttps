@@ -1,4 +1,35 @@
-<html><body>
-<H1>Congratulations</H1>
-<b> It works ! </b>
-</body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>uhttps — it works</title>
+  <style>
+    :root { --fg:#222; --muted:#666; --bg:#fafafa; }
+    html,body { height:100%; margin:0; }
+    body {
+      display:grid; place-items:center; background:var(--bg);
+      font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,"Helvetica Neue",Arial,sans-serif;
+      color:var(--fg);
+    }
+    .card {
+      padding:2.5rem 3rem; border-radius:16px; background:white;
+      box-shadow:0 10px 25px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.06);
+      text-align:center;
+    }
+    h1 { margin:0 0 .25rem; font-size:1.75rem; }
+    p { margin:.25rem 0; color:var(--muted); }
+    code { background:#f2f2f2; padding:.15rem .35rem; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Congratulations:<br>uhttps is working !</h1>
+    <p>Served via <code id="proto">http(s)</code> on <code id="host">host</code></p>
+  </main>
+  <script>
+    document.getElementById('proto').textContent = location.protocol.replace(':','').toUpperCase();
+    document.getElementById('host').textContent  = location.host;
+  </script>
+</body>
+</html>
