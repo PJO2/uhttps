@@ -12,35 +12,8 @@
 
 // Changes:
 
-
-const char SYNTAX[] = ""
-"uhttps: Usage\n"
-"\n uhttps   [-4|-6] [-p port] [-d dir] [-i addr] [-c content-type|-ct|-cb]"
-"\n          [-g msec] [-s max connections] [-verbose] [-quiet] [-x file]\n"
-"\n      -4   IPv4 only"
-"\n      -6   IPv6 only"
-"\n      -d   base directory for content (default is current directory)"
-"\n      -c   content-type assigned to unknown files"
-"\n           (default: reject unregistered types)"
-"\n           [-ct: default text/plain], [-cb: default application/octet-stream]"
-"\n      -g   slow down transfer by waiting for x msc between two frames"
-"\n      -i   listen only this address"
-"\n      -p   HTTP port (defaut is 8080)"
-"\n      -q   quiet (decrease log level)"
-"\n      -s   maximum simultaneous connections (default is 1024)"
-"\n      -v   verbose (can be used up to 5 times)"
-"\n      -V   display version and exit"
-"\n      -x   set the default page for a directory (default is index.html)"
-"\n      --tls         enable TLS (HTTPS)\n"
-"\n      --cert FILE   path to PEM certificate (fullchain)\n"
-"\n      --key  FILE   path to PEM private key\n"
-"\n      --tls-port P  TLS port (default 8443)\n"
-"\n      --redirect-http  when TLS is enabled, redirect plain HTTP to https://\n"
-"\n";
-
 #define _CRT_SECURE_NO_WARNINGS	1
 #define _CRT_SECURE_NO_DEPRECATE
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,14 +28,57 @@ typedef int            BOOL;
 #include "uhttps.h"
 #include "log.h"
 
-struct S_Settings sSettings = { WARN, FALSE,                            // logging
-                 DEFAULT_MAXTHREADS, FALSE,              // system
-                 TRUE, TRUE, NULL,                     // Global Network
-                 DEFAULT_HTTP_PORT,                      // HTTP settings
-                 FALSE, "cert.pem", "private.key", DEFAULT_TLS_PORT, FALSE, // tls settings
-                 ".", DEFAULT_HTMLFILE, NULL             // HTML settings
-               };
+/* Print usage/help text (kept local to avoid extra dependencies) */
+ void print_usage(FILE *out) 
+ {
+        fprintf(out,
+            "uhttps - minimal static web server\n"
+            "\nUsage:\n"
+            "  %s [options]\n"
+            "\nNetworking:\n"
+            "  -4                    IPv4 only\n"
+            "  -6                    IPv6 only\n"
+            "  -i ADDR               Bind to this local address (IPv4 or IPv6)\n"
+            "  -p PORT               HTTP port (default %s)\n"
+            "  --tls                 Enable TLS (HTTPS)\n"
+            "  --tls-port PORT       HTTPS port (default %s)\n"
+            "  --cert FILE           PEM certificate (fullchain)\n"
+            "  --key  FILE           PEM private key\n"
+            "  --tls-dir DIR         Directory where OpenSSL DLLs are located (Windows)\n"
+            "  --redirect-http       When TLS is enabled, redirect plain HTTP to https://\n"
+            "\nContent & files:\n"
+            "  -d DIR                Web root (default is current directory)\n"
+            "  -x FILE               Default index file for directories (default %s)\n"
+            "  -c t|b|TYPE           Default content-type for unknown extensions\n"
+            "                        't' or -ct => %s   |  'b' or -cb => %s\n"
+            "\nConcurrency & logs:\n"
+            "  -s N                  Max simultaneous connections (default %d)\n"
+            "  -g MSEC               Slow down: wait MSEC between chunks (dev/testing)\n"
+            "  -v                    Increase verbosity (repeatable)\n"
+            "  -q                    Decrease verbosity\n"
+            "  -t                    Prefix logs with timestamps\n"
+            "  -V                    Print version and exit\n"
+            "  -h, --help            Show this help and exit\n",
+            "uhttps",
+            DEFAULT_HTTP_PORT,
+            DEFAULT_TLS_PORT,
+            DEFAULT_HTMLFILE,
+            DEFAULT_TEXT_TYPE,
+            DEFAULT_BINARY_TYPE,
+            DEFAULT_MAXTHREADS
+        );
+}; // Usage 
 
+// load default configuration
+struct S_Settings sSettings = 
+{ 
+            WARN, FALSE,                            // logging
+            DEFAULT_MAXTHREADS, FALSE,              // system
+            TRUE, TRUE, NULL,                     // Global Network
+            DEFAULT_HTTP_PORT,                      // HTTP settings
+            FALSE, "cert.pem", "private.key", DEFAULT_TLS_PORT, ".", FALSE,  // tls settings
+            ".", DEFAULT_HTMLFILE, NULL             // HTML settings
+};
 
 
 
@@ -70,78 +86,232 @@ struct S_Settings sSettings = { WARN, FALSE,                            // loggi
 // inits 
 // -------------------
 
-void BAD_PARAMS()
+/* Fail with message + usage */
+void die_bad(const char *msg, const char *opt) 
 {
-    sSettings.uVerbose = INFO;  // ensure message is dispayed
-    LOG (INFO, SYNTAX);
-    exit(1);
+        fprintf(stderr, "Error: %s%s%s\n\n",
+                msg ? msg : "invalid option",
+                (opt ? " : " : ""), (opt ? opt : ""));
+        print_usage(stderr);
+        exit(1);
+};
 
-} // BAD_PARAMS
+/* Parse an integer with bounds (inclusive). If lo==hi, skip range check. */
+void parse_int_bounded(const char *opt, const char *val, int *out, int lo, int hi) 
+{
+    char *end = NULL;
+    long v = strtol(val, &end, 10);
+    if (!val || *val == '\0' || end == val || *end != '\0')
+        die_bad("invalid integer value for", opt);
+    if (lo != hi && (v < lo || v > hi))
+        die_bad("out-of-range value for", opt);
+    *out = (int)v;
+} // parse_int_bounded
+
+
+    /* Set default content-type from token:
+       - "t" / "text" / "text/plain" => DEFAULT_TEXT_TYPE
+       - "b" / "binary" / "application/octet-stream" => DEFAULT_BINARY_TYPE
+       - anything else is taken literally as a MIME type string */
+void set_default_ctype(const char *tok) 
+{
+    if (!tok || !*tok) die_bad("missing value for", "-c");
+    if (tok[1] == '\0') 
+    {
+        char ch = (char)tolower((unsigned char)tok[0]);
+        if (ch == 't') sSettings.szDefaultContentType = DEFAULT_TEXT_TYPE;
+        else if (ch == 'b') sSettings.szDefaultContentType = DEFAULT_BINARY_TYPE;
+        else die_bad("unknown -c value (use t|b|<mime>)", tok);
+    }
+    else if (_stricmp(tok, "t") == 0 || _stricmp(tok, "text") == 0 || _stricmp(tok, "text/plain") == 0) 
+    {
+        sSettings.szDefaultContentType = DEFAULT_TEXT_TYPE;
+    }
+    else if (_stricmp(tok, "b") == 0 || _stricmp(tok, "binary") == 0 || _stricmp(tok, "application/octet-stream") == 0) 
+    {
+        sSettings.szDefaultContentType = DEFAULT_BINARY_TYPE;
+    }
+    else
+    {
+        sSettings.szDefaultContentType = tok; /* literal MIME string */
+    }
+};
 
 
   // process args (mostly populate settings structure)
   // loosely processed : user can crash with invalid args...
 int ParseCmdLine(int argc, char *argv[])
 {
-	int ark, idx;
-	const char *p; 
-	char type_p=' ' ; // character which determine the default type binary/text
+/* Helper lambdas (implemented as inline blocks) */
+const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
 
-	for (ark = 1; ark < argc; ark++)
-	{
-		if (argv[ark][0] == '-')
-		{
-			switch (argv[ark][1])
-			{
-			case '4': sSettings.bIPv6 = FALSE; break;
-			case '6': sSettings.bIPv4 = FALSE; break;
-			case 'c': if (argv[ark][2]!=0)         type_p = argv[ark][2];
-                                  else  if (argv[ark+1]!=NULL) type_p = argv[++ark][0];
-                                  switch (type_p | 0x20)
-				  {
-					case 'b' : p = DEFAULT_BINARY_TYPE; break;
-					case 't' : p = DEFAULT_TEXT_TYPE;   break;
-					default  : BAD_PARAMS();
-			          }
-				  sSettings.szDefaultContentType = p;
-				  break;
-			case 'd': sSettings.szDirectory = argv[++ark];         break;
-			case 'g': sSettings.slow_down   = atoi(argv[++ark]);   break;
-			case 'i': sSettings.szBoundTo   = argv[++ark];         break;
-			case 'p': sSettings.szHTTPPort  = argv[++ark];         break;
-			case 'q': sSettings.uVerbose--;                        break;
-			case 's': sSettings.max_threads = atoi(argv[++ark]);   break;
-			case 'v': for (idx=1;  argv[ark][idx]=='v' ; idx++) 
-                                       sSettings.uVerbose++;      
-                                  break;
-			case 't' : sSettings.timestamp = TRUE;                 break;
-			case 'V': sSettings.uVerbose = INFO;
-                                  LOG (INFO, "uhttps version %s\n", UHTTPS_VERSION);
-                                  exit(0);
-			case 'x': sSettings.szDefaultHtmlFile = argv[++ark];   break;
-				  break;
-                        case '-': if (strcmp(argv[ark], "--tls")==0)
-                                       sSettings.bTLS = TRUE;
-                                  else if (strcmp(argv[ark], "--cert")==0)
-                                       sSettings.tls_cert = argv[++ark];
-                                  else if (strcmp(argv[ark], "--key")==0)
-                                       sSettings.tls_key = argv[++ark];
-                                  else if (strcmp(argv[ark], "--tls-port")==0)
-                                       sSettings.szTlsPort = argv[++ark];
-                                  else if (strcmp(argv[ark], "--redirect-http") == 0) 
-                                       sSettings.bRedirectHttp = TRUE;
-                                  else BAD_PARAMS();
-                                  break;
-			default:  BAD_PARAMS();
+    /* Defaults are assumed to be set elsewhere (sSettings is global).
+       We only parse/override here. */
+    for (int ark=1; ark < argc; ark++) 
+    {
+        const char *arg = argv[ark];
+        if (!arg || !*arg) continue;
 
-			} // switch
-		} // args prefixed by "-"
-		else
-		{
-			BAD_PARAMS();
-		}
-	} // for all args
-	return ark;
+        /* Non-option token? treat as error to keep interface clean */
+        if (arg[0] != '-') {
+            die_bad("unexpected positional argument", arg);
+        }
+
+        /* ---- Long options: --name or --name=value ---- */
+        if (arg[1] == '-') {
+            const char *name = arg + 2;
+            const char *eq   = strchr(name, '=');
+            size_t namelen   = eq ? (size_t)(eq - name) : strlen(name);
+            const char *val  = NULL;
+
+            /* Compare name (len-limited) to a literal */
+#define LONGOPT_IS(lit) (_strnicmp(name, (lit), namelen) == 0 && (lit)[namelen] == '\0')
+            /* Fetch value from "--opt=value" or the next argv token */
+#define TAKE_VALUE(optlit) \
+    do { \
+        if (eq) { \
+            val = eq + 1; \
+            if (!*val) die_bad("missing value for", "--" optlit); \
+        } else { \
+            if (++ark >= argc) die_bad("missing value for", "--" optlit); \
+            val = argv[ark]; \
+        } \
+    } while (0)
+
+            if (LONGOPT_IS("help")) 
+            {
+                print_usage(stdout);
+                exit(0);
+            } 
+            else if (LONGOPT_IS("tls")) 
+            {
+                if (eq) die_bad("option does not take a value", "--tls");
+                sSettings.bTLS = TRUE;
+            }
+            else if (LONGOPT_IS("redirect-http")) 
+            {
+                if (eq) die_bad("option does not take a value", "--redirect-http");
+                sSettings.bRedirectHttp = TRUE;
+            }
+            else if (LONGOPT_IS("cert")) 
+            {
+                TAKE_VALUE("cert");
+                sSettings.tls_cert = val;
+            }
+            else if (LONGOPT_IS("key")) 
+            {
+                TAKE_VALUE("key");
+                sSettings.tls_key = val;
+            }
+            else if (LONGOPT_IS("tls-port")) 
+            {
+                TAKE_VALUE("tls-port");
+                sSettings.szTlsPort = val;
+            }
+            else if (LONGOPT_IS("tls-dir")) 
+            {
+                TAKE_VALUE("tls-dir");
+                sSettings.szOpenSSLDir = val;
+            }
+            else 
+            {
+                die_bad("unknown option", arg);
+            }
+            continue;
+        }
+
+        /* ---- Short options: -p8080, -p 8080, -ct, -c t, -vvt, etc. ---- */
+        for (size_t k = 1; arg[k] != '\0'; k++) 
+        {
+            char ch = arg[k];
+            const char *val = NULL;   /* for options that take a value */
+
+// Helpers: value is the rest of this token or next argv 
+#define REMAINS (&arg[k+1])
+#define TAKE_NEXT_VALUE(optlit) \
+    do { \
+        if (REMAINS[0]) { \
+            val = REMAINS; \
+            k = strlen(arg) - 1; /* consume the rest of this token */ \
+        } else { \
+            if (++ark >= argc) die_bad("missing value for", optlit); \
+            val = argv[ark]; \
+        } \
+    } while (0)
+
+            switch (ch) 
+            {
+            case '4': sSettings.bIPv6 = FALSE; break;
+            case '6': sSettings.bIPv4 = FALSE; break;
+            case 't': sSettings.timestamp = TRUE; break;
+            case 'q': sSettings.uVerbose--; break;
+            case 'v': sSettings.uVerbose++; break;
+
+            case 'V':
+                /* Print version and exit. Keep this simple to avoid extra deps. */
+                fprintf(stdout, "uhttps version %s\n", UHTTPS_VERSION);
+                exit(0);
+
+            case 'h':
+                print_usage(stdout);
+                exit(0);
+
+            case 'd':
+                TAKE_NEXT_VALUE("-d");
+                sSettings.szDirectory = (char*)val;
+                break;
+
+            case 'i':
+                TAKE_NEXT_VALUE("-i");
+                sSettings.szBoundTo = (char*)val;
+                break;
+
+            case 'p':
+                TAKE_NEXT_VALUE("-p");
+                sSettings.szHTTPPort = (char*)val;
+                break;
+
+            case 's':
+                TAKE_NEXT_VALUE("-s");
+                parse_int_bounded("-s", val, &sSettings.max_threads, 1, 1<<20);
+                break;
+
+            case 'g':
+                TAKE_NEXT_VALUE("-g");
+                parse_int_bounded("-g", val, &sSettings.slow_down, 0, 3600000);
+                break;
+
+            case 'x':
+                TAKE_NEXT_VALUE("-x");
+                sSettings.szDefaultHtmlFile = (char*)val;
+                break;
+
+            case 'c':
+                /* Accept "-ct" / "-cb" / "-c t" / "-c b" / "-c application/json" */
+                if (REMAINS[0]) {
+                    set_default_ctype(REMAINS);
+                    k = strlen(arg) - 1; /* we consumed the rest of token */
+                } else {
+                    if (++ark >= argc) die_bad("missing value for", "-c");
+                    const char *v = argv[ark];
+                    /* Allow legacy tokens "ct"/"cb" as well */
+                    if (_stricmp(v, "ct") == 0)       set_default_ctype("t");
+                    else if (_stricmp(v, "cb") == 0)  set_default_ctype("b");
+                    else                               set_default_ctype(v);
+                }
+                break;
+
+            default: 
+                char unk[3] = {'-', ch, 0};
+                die_bad("unknown option", unk);
+            } /* switch ch */
+
+            /* If we consumed the rest of a clustered token for a value option,
+               the inner loop already advanced 'k' to the string end. */
+        } /* for each char in clustered short option */
+    } /* for argv */
+
+ return 0;
 } // ParseCmdLine
 
 
@@ -154,6 +324,16 @@ int SanityChecks (const struct S_Settings *p)
             return FALSE;
         }
    }
+    /* Final sanity: keep at least one IP family */
+    if (!sSettings.bIPv4 && !sSettings.bIPv6)
+    {
+        die_bad("IPv4 and IPv6 both disabled (use -4 or -6, not both)", NULL);
+        return FALSE;
+    }
+
+    /* Clamp verbosity into known range if your enum defines bounds */
+    if (sSettings.uVerbose < FATAL) sSettings.uVerbose = FATAL;
+    if (sSettings.uVerbose > ALL)   sSettings.uVerbose = ALL;
    return TRUE;
 }
 
@@ -162,21 +342,21 @@ int SanityChecks (const struct S_Settings *p)
   // main program : read args, create listening socket and wait for incoming connections
 int main(int argc, char *argv[])
 {
-	ParseCmdLine(argc, argv); // override default settings
-        if (! SanityChecks (& sSettings))
+    ParseCmdLine(argc, argv); // override default settings
+    if (! SanityChecks (& sSettings))
                 exit(1);
 
-	if (! Setup ())
-		exit(1);
+    if (! Setup ())
+        exit(1);
 
-	for (  ;  ; )
-	{
-		doLoop ();
-	} // for (; ; )
-	  // cleanup
+    for (  ;  ; )
+    {
+        doLoop ();
+    } // for (; ; )
+      // cleanup
 
-	Cleanup();
+    Cleanup();
 
-	return 0;
+    return 0;
 }
 

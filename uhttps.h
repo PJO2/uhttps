@@ -1,10 +1,10 @@
 // --------------------------------------------------------
-// uweb : a minimal web server which compile under MacOS, Linux and Windows
-// by Ph. Jounin November 2019
+// uhhtps : a minimal web server which compile under MacOS, Linux and Windows
+// by Ph. Jounin September 2025
 //
 // License: GPLv2
 // Module: 
-//         uweb.h
+//         uhttps.h
 // --------------------------------------------------------
 
 
@@ -57,6 +57,7 @@ struct S_Settings
         char   *tls_cert;         /* PEM cert (fullchain) */
         char   *tls_key;          /* PEM private key */
         char   *szTlsPort;        /* TLS listen port (default 8443) */
+		char   *szOpenSSLDir;     /* directory where OpenSSL DLLs are located (Windows only) */
         BOOL   bRedirectHttp;   /* 0/1: 80/8080 -> https:// redirect */
         // HTML settings
         char  *szDirectory;
