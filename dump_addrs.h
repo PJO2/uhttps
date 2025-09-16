@@ -9,5 +9,5 @@ struct S_Addrs
     SOCKADDR_STORAGE *sas;
 };
 
-struct S_Addrs *get_local_addresses_wrapper(struct S_Addrs *pT, int family) ;
+struct S_Addrs *get_local_addresses_wrapper(struct S_Addrs *pT, int family, BOO bFilterLocal) ;
 void print_text_addrs (struct S_Addrs *pT);

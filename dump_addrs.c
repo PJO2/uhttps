@@ -26,6 +26,8 @@
 #include <netdb.h>
 
 typedef struct sockaddr_storage SOCKADDR_STORAGE;
+typedef int BOOL
+#define enum { FALSE=0; TRUE}
 #endif
 
 #include "dump_addrs.h"
