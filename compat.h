@@ -63,6 +63,7 @@ static inline void ssleep(int msec) { Sleep(msec); }
 #ifdef UNIX
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
