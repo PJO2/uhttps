@@ -495,8 +495,8 @@ BOOL ExtractFileName(const char *szHttpRequest, size_t request_length, char *szF
 // Extract The host from the HTTP request (Needed to redirect)
 BOOL ExtractHostName(const char *szHttpRequest, size_t request_length, char *szHostName, int host_size)
 {
-const char *pCur=NULL, *pEnd;
-int         len, ark=0;
+const char *pCur=NULL;
+int         ark=0;
    host_size--; // leave a place for the ending 0
    // search for a new line :
    for ( pCur=szHttpRequest ; pCur!=NULL ; pCur=strchr (pCur, '\n') )
@@ -536,18 +536,19 @@ char resp[200+256+256];
     ExtractFileName (pData->buf, pData->buflen, path+1, (int)sizeof(path)-1 ); 
     LOG(DEBUG, "EXtract: host is %s, path is %s\n", host, path);
     /* Minimal RFC-compliant redirect */
-    int n = _snprintf_s(resp, sizeof(resp), _TRUNCATE,
-        "HTTP/1.1 308 Permanent Redirect\r\n"
-        "Location: https://%s:%s%s\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n"
-        "Server: uhttps-%s\r\n"
-        "\r\n",
-        host, sSettings.szTlsPort,
-        path,
-        UHTTPS_VERSION);
-     LOG (DEBUG, "redirection message:\n%s", resp);
-     io_write(&pData->conn, resp, (size_t)n);
+    StringCchPrintf (resp, sizeof(resp),
+                    "HTTP/1.1 308 Permanent Redirect\r\n"
+                    "Location: https://%s:%s%s\r\n"
+                    "Content-Length: 0\r\n"
+                    "Connection: close\r\n"
+                    "Server: uhttps-%s\r\n"
+                    "\r\n",
+                    host, sSettings.szTlsPort,
+                    path,
+                    UHTTPS_VERSION);
+    resp [sizeof(resp)-1]=0;
+    LOG (DEBUG, "redirection message:\n%s", resp);
+    io_write(&pData->conn, resp, strlen(resp));
 return TRUE;
 } // SendRedirect2Https
 
