@@ -125,11 +125,11 @@ void set_default_ctype(const char *tok)
         else if (ch == 'b') sSettings.szDefaultContentType = DEFAULT_BINARY_TYPE;
         else die_bad("unknown -c value (use t|b|<mime>)", tok);
     }
-    else if (_stricmp(tok, "t") == 0 || _stricmp(tok, "text") == 0 || _stricmp(tok, "text/plain") == 0) 
+    else if (strcasecmp(tok, "t") == 0 || strcasecmp(tok, "text") == 0 || strcasecmp(tok, "text/plain") == 0) 
     {
         sSettings.szDefaultContentType = DEFAULT_TEXT_TYPE;
     }
-    else if (_stricmp(tok, "b") == 0 || _stricmp(tok, "binary") == 0 || _stricmp(tok, "application/octet-stream") == 0) 
+    else if (strcasecmp(tok, "b") == 0 || strcasecmp(tok, "binary") == 0 || strcasecmp(tok, "application/octet-stream") == 0) 
     {
         sSettings.szDefaultContentType = DEFAULT_BINARY_TYPE;
     }
@@ -163,7 +163,7 @@ int ParseCmdLine(int argc, char *argv[])
             const char *val  = NULL;
 
             /* Compare name (len-limited) to a literal */
-#define LONGOPT_IS(lit) (_strnicmp(name, (lit), namelen) == 0 && (lit)[namelen] == '\0')
+#define LONGOPT_IS(lit) (strncasecmp(name, (lit), namelen) == 0 && (lit)[namelen] == '\0')
             /* Fetch value from "--opt=value" or the next argv token */
 #define TAKE_STR_VALUE(entry, optlit) \
     do { \
@@ -281,9 +281,9 @@ int ParseCmdLine(int argc, char *argv[])
                     if (++ark >= argc) die_bad("missing value for", "-c");
                     const char *v = argv[ark];
                     /* Allow legacy tokens "ct"/"cb" as well */
-                    if (_stricmp(v, "ct") == 0)       set_default_ctype("t");
-                    else if (_stricmp(v, "cb") == 0)  set_default_ctype("b");
-                    else                              set_default_ctype(v);
+                    if (strcasecmp(v, "ct") == 0)       set_default_ctype("t");
+                    else if (strcasecmp(v, "cb") == 0)  set_default_ctype("b");
+                    else                                set_default_ctype(v);
                 }
                 break;
 

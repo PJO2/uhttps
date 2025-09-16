@@ -170,12 +170,13 @@ int tls_dyn_load(void) {
 
     g_loaded = 1;
     return 0;
-}
+} // tls_dyn_load
 
 void tls_dyn_unload(void) {
     if (hSSL) { FreeLibrary(hSSL);    hSSL = NULL; }
     if (hCRYPTO) { FreeLibrary(hCRYPTO); hCRYPTO = NULL; }
     g_loaded = 0;
 }
-
 #endif // _WIN32
+
+

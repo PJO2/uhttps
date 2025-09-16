@@ -6,7 +6,7 @@ EXEC=uhttps
 
 all: $(EXEC)
 
-$(EXEC): uhttps.c log.c cmd_line.c
+$(EXEC): uhttps.c log.c cmd_line.c addrs2txt.c 
 	$(CC) -o $@ $^ $(CFLAGS) $(LDFLAGS)
 
 clean:

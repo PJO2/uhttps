@@ -10,24 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#include <iphlpapi.h>
-#pragma comment(lib, "Ws2_32.lib")
-#pragma comment(lib, "Iphlpapi.lib")
-#else
-#include <sys/types.h>
-#include <ifaddrs.h>
-#include <net/if.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <netdb.h>
-
-typedef struct sockaddr_storage SOCKADDR_STORAGE;
-#endif
-
+#include "compat.h"
 #include "addrs2txt.h"
 
 // -----------------------------------------
@@ -45,7 +28,7 @@ size_t hostlen, seplen = sep==NULL ? 0 : strlen(sep);
         // if family is given
         if (family!=AF_UNSPEC  && pT->sas[ark].ss_family!=family) continue;
 
-        if (getnameinfo ( (const SOCKADDR *) & pT->sas[ark],
+        if (getnameinfo ( (LPSOCKADDR) & pT->sas[ark],
                           (socklen_t)((pT->sas[ark].ss_family == AF_INET) ? 
                                   sizeof(struct sockaddr_in) :
                                   sizeof(struct sockaddr_in6)),

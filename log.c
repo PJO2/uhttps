@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
+
+#include "compat.h"
 #include "log.h"
 
 // from uhttps.h
@@ -21,7 +23,6 @@ extern struct S_Settings
 	int   timestamp;
 } sSettings;
 
-void ssleep(int);
 
 
 

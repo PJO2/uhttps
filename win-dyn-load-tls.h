@@ -71,7 +71,10 @@
 #define SSL_CTX_ctrl  p_SSL_CTX_ctrl
 
 #else
+
 // Non-Windows : do not change anythink
 static inline int  tls_dyn_load(void) { return 0; }
 static inline void tls_dyn_unload(void) {}
+
 #endif // _WIN32
+

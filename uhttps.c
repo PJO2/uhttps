@@ -32,13 +32,15 @@
 #define INVALID_FILE_VALUE NULL
 
 
-#include "log.h"
-#include "uhttps.h"
-#include "addrs2txt.h"
-#include "html_extensions.h"
 
 // Compatibility 
 #include "compat.h"
+
+#include "log.h"
+#include "uhttps.h"
+#include "html_extensions.h"
+#include "addrs2txt.h"
+#include "win-dyn-load-tls.h"
 
   // ---------------------------------------------------------
   // Protocol Error codes and text
@@ -238,7 +240,7 @@ int dump_addrinfo(ADDRINFO *runp)
             portbuf, sizeof(portbuf),
             NI_NUMERICHOST | NI_NUMERICSERV
     );
-    LOG (WARN, "host: %s, port: %s\n", hostbuf, portbuf);
+    LOG (INFO, "host: %s, port: %s\n", hostbuf, portbuf);
        __DUMMY(e);
 return 0;
 }
@@ -425,7 +427,9 @@ return 0;
 } // LogTransfer
 
 // Minimal HTTP->HTTPS redirect (no Host:, no query handling) 
-int SendRedirect2Https (struct S_ThreadData *pData) {
+int SendRedirect2Https (struct S_ThreadData *pData) 
+{
+#ifdef NOK
 char host[256] = "localhost";
 char lport[32] = "";
 char path[1024] = "/";
@@ -468,7 +472,7 @@ char path[1024] = "/";
 
     /* 3) Build Location (omit :port if 443) */
     char location[512];
-    if (_stricmp(tls_port, "443") == 0)
+    if (strcasecmp(tls_port, "443") == 0)
         _snprintf_s(location, sizeof(location), _TRUNCATE, "https://%s%s", host, path);
     else
         _snprintf_s(location, sizeof(location), _TRUNCATE, "https://%s:%s%s", host, tls_port, path);
@@ -485,6 +489,7 @@ char path[1024] = "/";
         location, UHTTPS_VERSION);
 
      io_write(&pData->conn, resp, (size_t)n);
+#endif
     return 0;
 }
 
