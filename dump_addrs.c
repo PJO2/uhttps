@@ -75,7 +75,9 @@ void addrs2txt (char *buf, int bufsize, const struct S_Addrs *pT, int family, co
 int ark;
 char host[NI_MAXHOST];
 int len=0;
+int seplen = sep==NULL ? 0 : strlen(sep);
 
+    buf[--bufsize]=0; // strncpy do not add the 0 if overflow -> make bufize 1 char shorter
     // sort sa structure (can not use text compare since 192.168.1.1 will be before 3.1.1.1)
     qsort (pT->sas, pT->naddr, sizeof (pT->sas[0]), sockaddr_cmp);
     for (ark=0; ark<pT->naddr ; ark++)
@@ -91,7 +93,18 @@ int len=0;
                           NULL, 0,
                           NI_NUMERICHOST) == 0) 
         {
-            len += _snprintf_s (buf+len, bufsize-len, _TRUNCATE, "%s%s", ark==0 ? "" : sep, host);
+            hostlen = strlen(host);
+            if (ark!=0) 
+               if (seplen>0 && bufsize-len>sep)
+               {  
+                   memcpy(buf+len, sep, seplen+1);
+                   len += seplen;
+               }
+            if (bufsize-len>hostlen)
+            {
+                   memcpy(buf+len, host, hostlen+1);
+                   len += hostlen;
+            }
         }
     }
 } // print_text_addrs
