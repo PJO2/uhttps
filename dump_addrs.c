@@ -70,14 +70,14 @@ const struct sockaddr *sb = (const struct sockaddr *)b;
 
 // -----------------------------------------
 // sort then print out the addresses
-void addrs2txt (char *buf, int bufsize, const struct S_Addrs *pT, int family, const char *sep)
+char *addrs2txt (char *buf, int bufsize, struct S_Addrs *pT, int family, const char *sep)
 {
 int ark;
 char host[NI_MAXHOST];
 int len=0;
-int seplen = sep==NULL ? 0 : strlen(sep);
+int hostlen, seplen = sep==NULL ? 0 : strlen(sep);
 
-    buf[--bufsize]=0; // strncpy do not add the 0 if overflow -> make bufize 1 char shorter
+    buf[--bufsize]=0; // memcpy do not add the 0 if overflow -> make bufize 1 char shorter
     // sort sa structure (can not use text compare since 192.168.1.1 will be before 3.1.1.1)
     qsort (pT->sas, pT->naddr, sizeof (pT->sas[0]), sockaddr_cmp);
     for (ark=0; ark<pT->naddr ; ark++)
@@ -93,21 +93,22 @@ int seplen = sep==NULL ? 0 : strlen(sep);
                           NULL, 0,
                           NI_NUMERICHOST) == 0) 
         {
-            hostlen = strlen(host);
-            if (ark!=0) 
-               if (seplen>0 && bufsize-len>sep)
-               {  
-                   memcpy(buf+len, sep, seplen+1);
-                   len += seplen;
-               }
-            if (bufsize-len>hostlen)
-            {
-                   memcpy(buf+len, host, hostlen+1);
-                   len += hostlen;
+            if (ark!=0 && seplen>0 && bufsize-len>=seplen)
+            {  
+                memcpy(buf+len, sep, seplen);
+                len += seplen;
             }
-        }
+            hostlen = strlen(host);
+            if (bufsize-len>=hostlen)
+            {
+                memcpy(buf+len, host, hostlen);
+                len += hostlen;
+            }
+        } // do somethink like sprint (buf, "%s%s", sep, host)
     }
-} // print_text_addrs
+    buf[len]=0;
+return buf;
+} // addrs2txt
 
 
 
@@ -116,29 +117,30 @@ int seplen = sep==NULL ? 0 : strlen(sep);
 // -----------------------------------
 
 // push a sockaddr into the S_Addrs table
-static void push_sockaddr(const struct sockaddr* sa, struct S_Addrs *pT) {
+static void push_sockaddr(const struct sockaddr* sa, struct S_Addrs *pT, BOOL bFilterLocal)
+{
     if (!sa) return;
     if (sa->sa_family != AF_INET && sa->sa_family != AF_INET6) return;
 	// filter out loobacks and link-local addresses
     if (sa->sa_family == AF_INET) 
     {
         const struct in_addr* a = &((const struct sockaddr_in*)sa)->sin_addr;
-        if ((ntohl(a->s_addr) >> 24) == 127) return;                // 127.0.0.0/8
-        if ((ntohl(a->s_addr) & 0xFFFF0000U) == 0xA9FE0000U) return; // 169.254.0.0/16
+        if (bFilterLocal && (ntohl(a->s_addr) >> 24) == 127) return;                // 127.0.0.0/8
+        if (bFilterLocal && (ntohl(a->s_addr) & 0xFFFF0000U) == 0xA9FE0000U) return; // 169.254.0.0/16
       // queue the sa structure
         memcpy ( & pT->sas[pT->naddr++], sa, sizeof (struct sockaddr_in));
     }
     else if (sa->sa_family == AF_INET6) {
         const struct in6_addr* a6 = &((const struct sockaddr_in6*)sa)->sin6_addr;
-        if (IN6_IS_ADDR_LOOPBACK(a6)) return ;        // ::1
-        if (IN6_IS_ADDR_LINKLOCAL(a6)) return;       // fe80::/10
+        if (bFilterLocal && IN6_IS_ADDR_LOOPBACK(a6)) return ;        // ::1
+        if (bFilterLocal && IN6_IS_ADDR_LINKLOCAL(a6)) return;       // fe80::/10
       // queue the sa structure
         memcpy ( & pT->sas[pT->naddr++], sa, sizeof (struct sockaddr_in6));
     }
 } // push_sockaddr
 
 // Use the system API to stack all sockaddr structures
-struct S_Addrs *get_local_addresses_wrapper(struct S_Addrs *pT, int family) 
+struct S_Addrs *get_local_addresses_wrapper(struct S_Addrs *pT, int family, BOOL bFilterLocal) 
 {
     pT->naddr = 0;
 #ifdef _WIN32
@@ -170,7 +172,7 @@ int ark;
     {
         if (aa->OperStatus != IfOperStatusUp) continue;
         for (IP_ADAPTER_UNICAST_ADDRESS* ua = aa->FirstUnicastAddress; ua!=NULL; ua = ua->Next) 
-            push_sockaddr(ua->Address.lpSockaddr, pT);
+            push_sockaddr(ua->Address.lpSockaddr, pT, bFilterLocal);
     }
     // sockaddr have been duplicated ->  pAdapterAddresses can be freed
     free(pAdapterAddresses);
@@ -184,7 +186,7 @@ int ark;
     int count=0;
     for (struct ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next) 
        count++;
-    printf ("allocating %d slots\n", count);
+    // printf ("allocating %d slots\n", count);
     pT->sas = calloc (sizeof(struct sockaddr), count);
     if (pT->sas==NULL) return NULL;
     for (struct ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
@@ -192,7 +194,7 @@ int ark;
         // Interface up & adresse IPv4/IPv6
         if (!(ifa->ifa_flags & IFF_UP)) continue;
         if (family==AF_UNSPEC || ifa->ifa_addr->sa_family==family)
-            push_sockaddr(ifa->ifa_addr, pT);
+            push_sockaddr(ifa->ifa_addr, pT, bFilterLocal);
     }
     freeifaddrs(ifaddr);
 #endif
@@ -208,7 +210,7 @@ int main(void) {
     // Winsock init (idempotent pour le process)
     // little database to store all sockaddr
 struct S_Addrs sAddr;
-char buf [100];
+char buf [505];
 #ifdef _WIN32
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
@@ -216,8 +218,9 @@ char buf [100];
     for (int ark=0 ; ark<3 ; ark++)
     {
        printf ("\nfamily is %d\n", families[ark]);
-       get_local_addresses_wrapper(& sAddr, families[ark]);
-       addrs2txt(buf, sizeof buf &sAddr, families[ark], ", ");
+       get_local_addresses_wrapper(& sAddr, families[ark], TRUE);
+       addrs2txt(buf, sizeof buf, &sAddr, families[ark], ", ");
+       printf (buf);
        free (sAddr.sas);
     }
 #ifdef _WIN32
