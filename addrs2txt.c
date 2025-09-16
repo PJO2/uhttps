@@ -26,11 +26,9 @@
 #include <netdb.h>
 
 typedef struct sockaddr_storage SOCKADDR_STORAGE;
-typedef int BOOL;
-enum { FALSE=0, TRUE};
 #endif
 
-#include "dump_addrs.h"
+#include "addrs2txt.h"
 
 // -----------------------------------------
 // Compare two sockaddr pointers for sorting
