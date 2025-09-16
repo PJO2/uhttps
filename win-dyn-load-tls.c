@@ -5,7 +5,6 @@
 
 // win-dyn-load-tls.c
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,7 +21,7 @@ const char *DLL_DIR_ENVIRONMENT_VARIABLE="UHTTPS_OPENSSL_DIR";
 const SSL_METHOD* (*p_TLS_server_method)(void) = NULL;
 SSL_CTX* (*p_SSL_CTX_new)(const SSL_METHOD*) = NULL;
 void      (*p_SSL_CTX_free)(SSL_CTX*) = NULL;
-SSL* (*p_SSL_new)(SSL_CTX*) = NULL;
+SSL*      (*p_SSL_new)(SSL_CTX*) = NULL;
 int       (*p_SSL_set_fd)(SSL*, int) = NULL;
 int       (*p_SSL_accept)(SSL*) = NULL;
 int       (*p_SSL_read)(SSL*, void*, int) = NULL;
@@ -96,7 +95,11 @@ static HMODULE load_single_dll(const char* dir, const char* name) {
 static int load_openssl_dlls(void) {
     if (g_loaded) return 0;
 
-    const char* dir = sSettings.szOpenSSLDir==NULL ? getenv(DLL_DIR_ENVIRONMENT_VARIABLE) : sSettings.szOpenSSLDir;
+    const char* dir, *env;
+    // if environnement variable provided and default settings not overridden : take it
+    env = getenv(DLL_DIR_ENVIRONMENT_VARIABLE);
+    dir = env && strcmp (DEFAULT_SSL_DIR, sSettings.szOpenSSLDir)==0  ? env : sSettings.szOpenSSLDir;
+    LOG(DEBUG, "searching for DLLs in directory %s\n", dir);
     // Try OpenSSL 3 first then 1.1.1
     const char* ssl_candidates[] =    { "libssl-3-x64.dll",    "libssl-1_1-x64.dll" }; 
     const char* crypto_candidates[] = { "libcrypto-3-x64.dll", "libcrypto-1_1-x64.dll" };

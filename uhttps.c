@@ -34,7 +34,7 @@
 
 #include "log.h"
 #include "uhttps.h"
-#include "dump_addrs.h"
+#include "addrs2txt.h"
 #include "html_extensions.h"
 
 // Compatibility 
@@ -233,7 +233,7 @@ int dump_addrinfo(ADDRINFO *runp)
 
         LOG (INFO, "family: %d, socktype: %d, protocol: %d, ", runp->ai_family, runp->ai_socktype, runp->ai_protocol);
         e = getnameinfo(
-            runp->ai_addr, runp->ai_addrlen,
+            runp->ai_addr, (socklen_t) runp->ai_addrlen,
             hostbuf, sizeof(hostbuf),
             portbuf, sizeof(portbuf),
             NI_NUMERICHOST | NI_NUMERICSERV
@@ -322,12 +322,12 @@ SOCKET BindServiceSocket(const char *port, const char *sz_bind_addr)
 } // BindServiceSocket
 
 // read, send and close wrappers
-static ssize_t io_read(conn_t *c, void *buf, size_t n) {
-    return c->ssl ? SSL_read(c->ssl, buf, (int)n)
+static ssize_t io_read(conn_t *c, void *buf, int n) {
+    return c->ssl ? SSL_read(c->ssl, buf, n)
                   : recv(c->skt, buf, n, 0);
 }
-static ssize_t io_write(conn_t *c, const void *buf, size_t n) {
-    return c->ssl ? SSL_write(c->ssl, buf, (int)n)
+static ssize_t io_write(conn_t *c, const void *buf, int n) {
+    return c->ssl ? SSL_write(c->ssl, buf, n)
                   : send(c->skt, buf, n, 0);
 }
 static void conn_close(conn_t *c) {
@@ -367,8 +367,8 @@ int HTTPSendError(conn_t *c, int HttpStatusCode)
                     UHTTPS_VERSION,
                     (DWORD64) strlen (szContentBuf),
                     "text/html" );
-        iResult = io_write (c, szHTTPHeaders, strlen (szHTTPHeaders));
-        iResult = io_write (c, szContentBuf,  strlen (szContentBuf));
+        iResult = io_write (c, szHTTPHeaders, (int) strlen (szHTTPHeaders));
+        iResult = io_write (c, szContentBuf,  (int) strlen (szContentBuf));
         return (int) iResult;
 } // HTTPSendError
 
@@ -513,7 +513,7 @@ const char *GetHtmlContentType(const char *os_extension)
   // extract the file name 
   //			1- do not crash if we receive misformatted packets
   // HTTP formatting is GET _space_ file name ? arguments _space_ HTTP/VERSION _end of line_
-BOOL ExtractFileName(const char *szHttpRequest, int request_length, char *szFileName, int name_size)
+BOOL ExtractFileName(const char *szHttpRequest, size_t request_length, char *szFileName, int name_size)
 {
     const char *pCur=NULL, *pEnd;
     int         len, url_length;
@@ -557,12 +557,12 @@ BOOL ExtractFileName(const char *szHttpRequest, int request_length, char *szFile
 
   // Read request and extract file name
   // if error, can return abruptely: resources freed in calling funtions
-int DecodeHttpRequest(struct S_ThreadData *pData, int request_length)
+int DecodeHttpRequest(struct S_ThreadData *pData, size_t request_length)
 {
     char     szCurDir[MAX_PATH];
 
     // double check buffer overflow
-    if (request_length >= (int)pData->buflen)
+    if (request_length >= pData->buflen)
         exit(-2);
     pData->buf[request_length++] = 0;
 
@@ -702,7 +702,7 @@ THREAD_RET WINAPI HttpTransferThread(void * lpParam)
         UHTTPS_VERSION,
         pData->qwFileSize,
         pContentType);
-    io_write (& pData->conn, pData->buf, strlen(pData->buf));
+    io_write (& pData->conn, pData->buf, (int) strlen(pData->buf));
     LogTransfer(pData, LOG_BEGIN, 0);
 
     if (pData->request == HTTP_GET)
@@ -711,7 +711,7 @@ THREAD_RET WINAPI HttpTransferThread(void * lpParam)
         do
         {
             bytes_read = fread(pData->buf, 1, pData->buflen, pData->hFile);
-            bytes_sent = io_write(& pData->conn, pData->buf, bytes_read);
+            bytes_sent = io_write(& pData->conn, pData->buf, (int) bytes_read);
             pData->qwFileCurrentPos += bytes_read;
 
             if (pData->buflen == bytes_read && IsTransferCancelledByPeer(pData->conn.skt))
@@ -1046,18 +1046,24 @@ char sbuf[MAX_PATH];
     } // TLS
 
     // Print listening address
-    if (sSettings.szBoundTo==NULL && sSettings.uVerbose>=WARN)
+    if (sSettings.szBoundTo==NULL)
     { 
     struct S_Addrs sAddr;
+    char buf[512];
+        int fam = sSettings.bIPv4 && sSettings.bIPv6 ? AF_UNSPEC : sSettings.bIPv4 ? AF_INET : AF_INET6;
+        get_local_addresses_wrapper(& sAddr, fam, TRUE);
         LOG(INFO, "Listening on all local interfaces plus external addresses:\n");
-        get_local_addresses_wrapper(& sAddr, sSettings.bIPv4 && sSettings.bIPv6 ? AF_UNSPEC : sSettings.bIPv4 ? AF_INET : AF_INET6);
-        print_text_addrs(&sAddr);
+        LOG(INFO, "  IPv4: %s\n", addrs2txt(buf, sizeof buf, &sAddr, AF_INET, ", "));
+        LOG(INFO, "  IPv6: %s\n", addrs2txt(buf, sizeof buf, &sAddr, AF_INET6, ", "));
         free (sAddr.sas);        
     }
     if (HTTPListenSocket != INVALID_SOCKET)
-            LOG(WARN, "uhttps HTTP%s on :%s, base directory: %s\n",
+            LOG(WARN, "uhttps HTTP%s on :%s:%s, base directory: %s\n",
                        TLSListenSocket  != INVALID_SOCKET ? "/HTTPs" : "",
-                       sSettings.szHTTPPort, sbuf);
+                       sSettings.szHTTPPort, 
+                       TLSListenSocket  != INVALID_SOCKET ? sSettings.szTlsPort : "",
+                       sbuf
+                );
     return TRUE;
 } // Setup 
 

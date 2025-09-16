@@ -31,69 +31,29 @@ typedef struct sockaddr_storage SOCKADDR_STORAGE;
 #include "addrs2txt.h"
 
 // -----------------------------------------
-// Compare two sockaddr pointers for sorting
-int sockaddr_cmp(const void *a, const void *b) 
-{
-const struct sockaddr *sa = (const struct sockaddr *)a;
-const struct sockaddr *sb = (const struct sockaddr *)b;
-
-    // First sort by family: AF_INET before AF_INET6
-    if (sa->sa_family != sb->sa_family)
-        return (int)sa->sa_family - (int)sb->sa_family;
-
-    if (sa->sa_family == AF_INET) 
-    {
-        const struct sockaddr_in *ia = (const struct sockaddr_in *)sa;
-        const struct sockaddr_in *ib = (const struct sockaddr_in *)sb;
-
-        // Compare IPs (network order is fine for memcmp)
-        int r = memcmp(&ia->sin_addr, &ib->sin_addr, sizeof(struct in_addr));
-        if (r != 0) return r;
-
-        // If same IP, compare ports
-        return (int)ntohs(ia->sin_port) - (int)ntohs(ib->sin_port);
-
-    } 
-    else if (sa->sa_family == AF_INET6) 
-    {
-        const struct sockaddr_in6 *ia6 = (const struct sockaddr_in6 *)sa;
-        const struct sockaddr_in6 *ib6 = (const struct sockaddr_in6 *)sb;
-
-        int r = memcmp(&ia6->sin6_addr, &ib6->sin6_addr, sizeof(struct in6_addr));
-        if (r != 0) return r;
-
-        return (int)ntohs(ia6->sin6_port) - (int)ntohs(ib6->sin6_port);
-    }
-    return 0;
-} // sockaddr_cmp
-
-
-// -----------------------------------------
-// sort then print out the addresses
-char *addrs2txt (char *buf, int bufsize, struct S_Addrs *pT, int family, const char *sep)
+// print the addresses in plain text
+char *addrs2txt (char *buf, size_t bufsize, const struct S_Addrs *pT, int family, const char *sep)
 {
 int ark;
 char host[NI_MAXHOST];
-int len=0;
-int hostlen, seplen = sep==NULL ? 0 : strlen(sep);
+size_t len=0;
+size_t hostlen, seplen = sep==NULL ? 0 : strlen(sep);
 
     buf[--bufsize]=0; // memcpy do not add the 0 if overflow -> make bufize 1 char shorter
-    // sort sa structure (can not use text compare since 192.168.1.1 will be before 3.1.1.1)
-    qsort (pT->sas, pT->naddr, sizeof (pT->sas[0]), sockaddr_cmp);
     for (ark=0; ark<pT->naddr ; ark++)
     {
         // if family is given
         if (family!=AF_UNSPEC  && pT->sas[ark].ss_family!=family) continue;
 
-        if (getnameinfo (& pT->sas[ark],
+        if (getnameinfo ( (const SOCKADDR *) & pT->sas[ark],
                           (socklen_t)((pT->sas[ark].ss_family == AF_INET) ? 
                                   sizeof(struct sockaddr_in) :
                                   sizeof(struct sockaddr_in6)),
-                          host, sizeof(host),
-                          NULL, 0,
-                          NI_NUMERICHOST) == 0) 
+                           host, sizeof(host),
+                           NULL, 0,
+                           NI_NUMERICHOST) == 0) 
         {
-            if (ark!=0 && seplen>0 && bufsize-len>=seplen)
+            if (len!=0 && seplen>0 && bufsize-len>=seplen)
             {  
                 memcpy(buf+len, sep, seplen);
                 len += seplen;
@@ -139,6 +99,44 @@ static void push_sockaddr(const struct sockaddr* sa, struct S_Addrs *pT, BOOL bF
     }
 } // push_sockaddr
 
+
+// Compare two sockaddr pointers for sorting
+static int sockaddr_cmp(const void *a, const void *b) 
+{
+const struct sockaddr *sa = (const struct sockaddr *)a;
+const struct sockaddr *sb = (const struct sockaddr *)b;
+
+    // First sort by family: AF_INET before AF_INET6
+    if (sa->sa_family != sb->sa_family)
+        return (int)sa->sa_family - (int)sb->sa_family;
+
+    if (sa->sa_family == AF_INET) 
+    {
+        const struct sockaddr_in *ia = (const struct sockaddr_in *)sa;
+        const struct sockaddr_in *ib = (const struct sockaddr_in *)sb;
+
+        // Compare IPs (network order is fine for memcmp)
+        int r = memcmp(&ia->sin_addr, &ib->sin_addr, sizeof(struct in_addr));
+        if (r != 0) return r;
+
+        // If same IP, compare ports
+        return (int)ntohs(ia->sin_port) - (int)ntohs(ib->sin_port);
+
+    } 
+    else if (sa->sa_family == AF_INET6) 
+    {
+        const struct sockaddr_in6 *ia6 = (const struct sockaddr_in6 *)sa;
+        const struct sockaddr_in6 *ib6 = (const struct sockaddr_in6 *)sb;
+
+        int r = memcmp(&ia6->sin6_addr, &ib6->sin6_addr, sizeof(struct in6_addr));
+        if (r != 0) return r;
+
+        return (int)ntohs(ia6->sin6_port) - (int)ntohs(ib6->sin6_port);
+    }
+    return 0;
+} // sockaddr_cmp
+
+
 // Use the system API to stack all sockaddr structures
 struct S_Addrs *get_local_addresses_wrapper(struct S_Addrs *pT, int family, BOOL bFilterLocal) 
 {
@@ -163,7 +161,9 @@ int ark;
     for (IP_ADAPTER_ADDRESSES* aa = pAdapterAddresses; aa!=NULL; aa = aa->Next) 
         for (IP_ADAPTER_UNICAST_ADDRESS* ua = aa->FirstUnicastAddress; ua!=NULL; ua = ua->Next) 
            count++;           
-    // printf ("allocating %d slots of %lu bytes\n", count, sizeof(pT->sas[0]));
+#ifdef TEST_MAIN           
+     printf ("allocating %d slots of %lu bytes\n", count, sizeof(pT->sas[0]));
+#endif     
     pT->sas = calloc (sizeof(pT->sas[0]), count);
     if (pT->sas==NULL) return NULL;
 
@@ -186,8 +186,10 @@ int ark;
     int count=0;
     for (struct ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next) 
        count++;
+#ifdef TEST_MAIN           
     printf ("allocating %d slots of %d bytes\n", count, sizeof(pT->sas[0]));
-    pT->sas = calloc (sizeof(pT->sas[0]) , count);
+#endif    
+    pT->sas = calloc (sizeof(pT->sas[0]) , count);    
     if (pT->sas==NULL) return NULL;
     for (struct ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
         if (!ifa->ifa_addr) continue;
@@ -199,6 +201,8 @@ int ark;
     freeifaddrs(ifaddr);
 #endif
 
+    // sort sas structure (can not use text compare since 192.168.1.1 will be before 3.1.1.1)
+    qsort (pT->sas, pT->naddr, sizeof (pT->sas[0]), sockaddr_cmp);
     return pT;
 } // get_local_addresses_wrapper
 
@@ -218,7 +222,7 @@ char buf [505];
     for (int ark=0 ; ark<3 ; ark++)
     {
        printf ("\nfamily is %d\n", families[ark]);
-       get_local_addresses_wrapper(& sAddr, families[ark], FALSE);
+       get_local_addresses_wrapper(& sAddr, families[ark], TRUE);
        addrs2txt(buf, sizeof buf, &sAddr, families[ark], ", ");
        printf ("%s\n", buf);
        free (sAddr.sas);

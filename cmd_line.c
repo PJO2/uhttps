@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <ctype.h>
 #include <assert.h>
 
 #ifdef UNIX
@@ -76,7 +77,8 @@ struct S_Settings sSettings =
             DEFAULT_MAXTHREADS, FALSE,              // system
             TRUE, TRUE, NULL,                     // Global Network
             DEFAULT_HTTP_PORT,                      // HTTP settings
-            FALSE, "cert.pem", "private.key", DEFAULT_TLS_PORT, ".", FALSE,  // tls settings
+            FALSE, "cert.pem", "private.key", DEFAULT_TLS_PORT, 
+            DEFAULT_SSL_DIR, FALSE,                 // tls settings
             ".", DEFAULT_HTMLFILE, NULL             // HTML settings
 };
 
@@ -139,14 +141,10 @@ void set_default_ctype(const char *tok)
 
 
   // process args (mostly populate settings structure)
-  // loosely processed : user can crash with invalid args...
+  // loosely processed : (user can crash with invalid args, may be not anymore)
 int ParseCmdLine(int argc, char *argv[])
 {
-/* Helper lambdas (implemented as inline blocks) */
-const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
-
-    /* Defaults are assumed to be set elsewhere (sSettings is global).
-       We only parse/override here. */
+    // Defaults are set elsewhere (sSettings is global). We only parse/override here.
     for (int ark=1; ark < argc; ark++) 
     {
         const char *arg = argv[ark];
@@ -167,7 +165,7 @@ const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
             /* Compare name (len-limited) to a literal */
 #define LONGOPT_IS(lit) (_strnicmp(name, (lit), namelen) == 0 && (lit)[namelen] == '\0')
             /* Fetch value from "--opt=value" or the next argv token */
-#define TAKE_VALUE(optlit) \
+#define TAKE_STR_VALUE(entry, optlit) \
     do { \
         if (eq) { \
             val = eq + 1; \
@@ -176,6 +174,7 @@ const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
             if (++ark >= argc) die_bad("missing value for", "--" optlit); \
             val = argv[ark]; \
         } \
+        entry = (char *) val; \
     } while (0)
 
             if (LONGOPT_IS("help")) 
@@ -194,29 +193,15 @@ const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
                 sSettings.bRedirectHttp = TRUE;
             }
             else if (LONGOPT_IS("cert")) 
-            {
-                TAKE_VALUE("cert");
-                sSettings.tls_cert = val;
-            }
+                TAKE_STR_VALUE(sSettings.tls_cert,     "cert");
             else if (LONGOPT_IS("key")) 
-            {
-                TAKE_VALUE("key");
-                sSettings.tls_key = val;
-            }
+                TAKE_STR_VALUE(sSettings.tls_key,      "key");
             else if (LONGOPT_IS("tls-port")) 
-            {
-                TAKE_VALUE("tls-port");
-                sSettings.szTlsPort = val;
-            }
+                TAKE_STR_VALUE(sSettings.szTlsPort,    "tls-port");
             else if (LONGOPT_IS("tls-dir")) 
-            {
-                TAKE_VALUE("tls-dir");
-                sSettings.szOpenSSLDir = val;
-            }
+                TAKE_STR_VALUE(sSettings.szOpenSSLDir, "tls-dir");
             else 
-            {
                 die_bad("unknown option", arg);
-            }
             continue;
         }
 
@@ -227,6 +212,7 @@ const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
             const char *val = NULL;   /* for options that take a value */
 
 // Helpers: value is the rest of this token or next argv 
+// TAKE_NEXT_VALUE is string type if low_int=high_int=0
 #define REMAINS (&arg[k+1])
 #define TAKE_NEXT_VALUE(optlit) \
     do { \
@@ -258,17 +244,17 @@ const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
 
             case 'd':
                 TAKE_NEXT_VALUE("-d");
-                sSettings.szDirectory = (char*)val;
+                sSettings.szDirectory = (char *) val;
                 break;
 
             case 'i':
                 TAKE_NEXT_VALUE("-i");
-                sSettings.szBoundTo = (char*)val;
+                sSettings.szBoundTo = (char *) val;
                 break;
 
             case 'p':
                 TAKE_NEXT_VALUE("-p");
-                sSettings.szHTTPPort = (char*)val;
+                sSettings.szHTTPPort = (char *) val;
                 break;
 
             case 's':
@@ -283,7 +269,7 @@ const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
 
             case 'x':
                 TAKE_NEXT_VALUE("-x");
-                sSettings.szDefaultHtmlFile = (char*)val;
+                sSettings.szDefaultHtmlFile = (char *) val;
                 break;
 
             case 'c':
@@ -297,7 +283,7 @@ const char *prog = (argc > 0 && argv[0]) ? argv[0] : "uhttps";
                     /* Allow legacy tokens "ct"/"cb" as well */
                     if (_stricmp(v, "ct") == 0)       set_default_ctype("t");
                     else if (_stricmp(v, "cb") == 0)  set_default_ctype("b");
-                    else                               set_default_ctype(v);
+                    else                              set_default_ctype(v);
                 }
                 break;
 

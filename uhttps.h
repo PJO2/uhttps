@@ -28,6 +28,7 @@ typedef int BOOL;
 #define  DEFAULT_HTMLFILE       "index.html" // if request is "GET / HTTP/1.1"
 #define  DEFAULT_BINARY_TYPE    "application/octet-stream"
 #define  DEFAULT_TEXT_TYPE      "text/plain"
+#define  DEFAULT_SSL_DIR        "."
 
 
 #define  SELECT_TIMEOUT        5      // every 5 seconds, look for terminated threads

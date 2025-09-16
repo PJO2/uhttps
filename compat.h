@@ -40,8 +40,8 @@ THREAD_ID _startnewthread(THREAD_RET(WINAPI* lpStartAddress) (void*),
 {
 	return (THREAD_ID)_beginthreadex(NULL, 0, lpStartAddress, lpParameter, 0, NULL);
 }
-void _waitthreadend(THREAD_ID ThId) { WaitForSingleObject(ThId, INFINITE); }
-void _killthread(THREAD_ID ThId) { TerminateThread(ThId, -1); }
+void _waitthreadend(THREAD_ID ThId) { WaitForSingleObject(ThId, INFINITE);   }
+void _killthread(THREAD_ID ThId)    { TerminateThread(ThId, (DWORD) 0xCAFE); }
 
 
 // millisecond sleep (native for Windows, not for unix)

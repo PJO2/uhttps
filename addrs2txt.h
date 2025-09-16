@@ -1,5 +1,5 @@
 // Project https
-// header for dump_addrs.c
+// header for addrs2txt.c
 
 // An agnostic Linux/Windows IPv4/IPv6 address database
 // in array format (will be qsorted)
@@ -16,5 +16,7 @@ struct S_Addrs
     SOCKADDR_STORAGE *sas;
 };
 
+// get a sorted array of local address
 struct S_Addrs *get_local_addresses_wrapper(struct S_Addrs *pT, int family, BOOL bFilterLocal) ;
-void print_text_addrs (struct S_Addrs *pT);
+// display in plain text 
+char *addrs2txt (char *buf, size_t bufsize, const struct S_Addrs *pT, int family, const char *sep);
