@@ -1011,21 +1011,8 @@ BOOL Setup (void)
 {
 char sbuf[MAX_PATH];
 
-    // Change root directory before all network actions
-    if (!SetCurrentDirectory (sSettings.szDirectory))
-    {
-            LOG (FATAL, "can not change directory to %s\nError %d (%s)\n",
-                        sSettings.szDirectory,
-                        GetLastError(), LastErrorText());
-            return FALSE;
-    }
-    GetCurrentDirectory(sizeof sbuf, sbuf);
-
     InitSocket();
-    HTTPListenSocket = BindServiceSocket (sSettings.szHTTPPort, sSettings.szBoundTo);
-    if (HTTPListenSocket == INVALID_SOCKET)
-            return FALSE;
-
+    // keep current directory to retrieve DLL (Windows) and certificate+key
     if (sSettings.bTLS) 
     {
         // link with OpenSSL dynamically if needed (Windows only)
@@ -1035,6 +1022,24 @@ char sbuf[MAX_PATH];
         OPENSSL_init_ssl(0, NULL);
         if (TLSInit() == -1)
             return FALSE;
+    }
+
+    // Now change directory before opening sockets
+    if (!SetCurrentDirectory (sSettings.szDirectory))
+    {
+            LOG (FATAL, "can not change directory to %s\nError %d (%s)\n",
+                        sSettings.szDirectory,
+                        GetLastError(), LastErrorText());
+            return FALSE;
+    }
+    GetCurrentDirectory(sizeof sbuf, sbuf);
+
+    // And open services 
+    HTTPListenSocket = BindServiceSocket (sSettings.szHTTPPort, sSettings.szBoundTo);
+    if (HTTPListenSocket == INVALID_SOCKET)
+            return FALSE;
+    if (sSettings.bTLS) 
+    {
         TLSListenSocket  = BindServiceSocket (sSettings.szTlsPort, sSettings.szBoundTo);
         if (TLSListenSocket == INVALID_SOCKET)
             return FALSE;
@@ -1044,17 +1049,15 @@ char sbuf[MAX_PATH];
     if (sSettings.szBoundTo==NULL && sSettings.uVerbose>=WARN)
     { 
     struct S_Addrs sAddr;
-        printf("Listening on all local interfaces plus external addresses:\n");
+        LOG(INFO, "Listening on all local interfaces plus external addresses:\n");
         get_local_addresses_wrapper(& sAddr, sSettings.bIPv4 && sSettings.bIPv6 ? AF_UNSPEC : sSettings.bIPv4 ? AF_INET : AF_INET6);
         print_text_addrs(&sAddr);
         free (sAddr.sas);        
     }
-
     if (HTTPListenSocket != INVALID_SOCKET)
-            LOG(WARN, "uhttps HTTP  on :%s, base directory: %s\n", sSettings.szHTTPPort, sbuf);
-    if (TLSListenSocket  != INVALID_SOCKET)
-            LOG(WARN, "uhttps HTTPS on :%s\n", sSettings.szTlsPort);
-
+            LOG(WARN, "uhttps HTTP%s on :%s, base directory: %s\n",
+                       TLSListenSocket  != INVALID_SOCKET ? "/HTTPs" : "",
+                       sSettings.szHTTPPort, sbuf);
     return TRUE;
 } // Setup 
 

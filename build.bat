@@ -1,5 +1,4 @@
-set PATH=
-call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+if "%INCLUDE%"=="" call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
 cl /nologo /W4 /O2 /MT ^
                   /DWIN32_LEAN_AND_MEAN /D_CRT_SECURE_NO_WARNINGS ^
                   /Fe: WindowsBinaries/uhttps64.exe ^

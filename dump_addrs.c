@@ -70,35 +70,30 @@ const struct sockaddr *sb = (const struct sockaddr *)b;
 
 // -----------------------------------------
 // sort then print out the addresses
-void print_text_addrs (struct S_Addrs *pT)
+void addrs2txt (char *buf, int bufsize, const struct S_Addrs *pT, int family, const char *sep)
 {
 int ark;
 char host[NI_MAXHOST];
-int previous_family = AF_UNSPEC;
+int len=0;
 
-    // sort sa structure
+    // sort sa structure (can not use text compare since 192.168.1.1 will be before 3.1.1.1)
     qsort (pT->sas, pT->naddr, sizeof (pT->sas[0]), sockaddr_cmp);
     for (ark=0; ark<pT->naddr ; ark++)
     {
-        if (getnameinfo (& pT->sas[ark],
-                        (socklen_t)((pT->sas[ark].ss_family == AF_INET) ? 
-                                sizeof(struct sockaddr_in) :
-                                sizeof(struct sockaddr_in6)),
-                        host, sizeof(host),
-                        NULL, 0,
-                        NI_NUMERICHOST) == 0) 
-        {
-            if (previous_family != pT->sas[ark].ss_family)
-                   printf ("%s%s%s", 
-                              previous_family==AF_UNSPEC ? "" : "\n", 
-                              pT->sas[ark].ss_family==AF_INET ? "  IPv4: " : "  IPv6: ",
-                              host);
-            else   printf (", %s", host);
+        // if family is given
+        if (family!=AF_UNSPEC  && pT->sas[ark].ss_family!=family) continue;
 
-            previous_family = pT->sas[ark].ss_family;
-       }
+        if (getnameinfo (& pT->sas[ark],
+                          (socklen_t)((pT->sas[ark].ss_family == AF_INET) ? 
+                                  sizeof(struct sockaddr_in) :
+                                  sizeof(struct sockaddr_in6)),
+                          host, sizeof(host),
+                          NULL, 0,
+                          NI_NUMERICHOST) == 0) 
+        {
+            len += _snprintf_s (buf+len, bufsize-len, _TRUNCATE, "%s%s", ark==0 ? "" : sep, host);
+        }
     }
-    printf ("\n");
 } // print_text_addrs
 
 
@@ -200,6 +195,7 @@ int main(void) {
     // Winsock init (idempotent pour le process)
     // little database to store all sockaddr
 struct S_Addrs sAddr;
+char buf [100];
 #ifdef _WIN32
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
@@ -208,7 +204,7 @@ struct S_Addrs sAddr;
     {
        printf ("\nfamily is %d\n", families[ark]);
        get_local_addresses_wrapper(& sAddr, families[ark]);
-       print_text_addrs(&sAddr);
+       addrs2txt(buf, sizeof buf &sAddr, families[ark], ", ");
        free (sAddr.sas);
     }
 #ifdef _WIN32
