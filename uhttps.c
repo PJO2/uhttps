@@ -233,14 +233,14 @@ int dump_addrinfo(ADDRINFO *runp)
     char hostbuf[50], portbuf[10];
     int e;
 
-        LOG (INFO, "family: %d, socktype: %d, protocol: %d, ", runp->ai_family, runp->ai_socktype, runp->ai_protocol);
+        LOG (DEBUG, "family: %d, socktype: %d, protocol: %d, ", runp->ai_family, runp->ai_socktype, runp->ai_protocol);
         e = getnameinfo(
             runp->ai_addr, (socklen_t) runp->ai_addrlen,
             hostbuf, sizeof(hostbuf),
             portbuf, sizeof(portbuf),
             NI_NUMERICHOST | NI_NUMERICSERV
     );
-    LOG (INFO, "host: %s, port: %s\n", hostbuf, portbuf);
+    LOG (DEBUG, "host: %s, port: %s\n", hostbuf, portbuf);
        __DUMMY(e);
 return 0;
 }
@@ -426,72 +426,6 @@ int LogTransfer(const struct S_ThreadData *pData, int when, int http_status)
 return 0;
 } // LogTransfer
 
-// Minimal HTTP->HTTPS redirect (no Host:, no query handling) 
-int SendRedirect2Https (struct S_ThreadData *pData) 
-{
-#ifdef NOK
-char host[256] = "localhost";
-char lport[32] = "";
-char path[1024] = "/";
-    const char *tls_port = sSettings.szTlsPort ? sSettings.szTlsPort : DEFAULT_TLS_PORT;
-
-    /* 1) Numeric local address (server side) */
-    struct sockaddr_storage ss; socklen_t slen = sizeof ss;
-    if (getsockname(pData->conn.skt, (struct sockaddr*)&ss, &slen) == 0) 
-    {
-        getnameinfo((struct sockaddr*)&ss, slen,
-                    host, (socklen_t)sizeof(host),
-                    lport, (socklen_t)sizeof(lport),
-                    NI_NUMERICHOST | NI_NUMERICSERV);
-        /* Wrap IPv6 in brackets for URL correctness */
-        if (strchr(host, ':') && host[0] != '[') {
-            size_t L = strlen(host);
-            if (L + 2 < sizeof(host)) {
-                memmove(host + 1, host, L + 1);
-                host[0] = '['; host[L + 1] = ']'; host[L + 2] = 0;
-            }
-        }
-    }
-
-    /* 2) Extract path from request line (ignore query entirely) */
-    const char *req = pData->buf;
-    const char *sp1 = strchr(req, ' ');
-    if (sp1) {
-        // skip first word
-        while (*sp1 == ' ') sp1++;
-
-        const char *sp2 = strchr(sp1, ' ');
-        if (sp2 && sp2 > sp1) 
-        {
-            size_t len = (size_t)(sp2 - sp1);
-            if (len >= sizeof(path)) len = sizeof(path) - 1;
-            memcpy(path, sp1, len); path[len] = 0;
-            if (path[0] != '/') { path[0] = '/'; path[1] = 0; } /* normalize */
-        }
-    }
-
-    /* 3) Build Location (omit :port if 443) */
-    char location[512];
-    if (strcasecmp(tls_port, "443") == 0)
-        _snprintf_s(location, sizeof(location), _TRUNCATE, "https://%s%s", host, path);
-    else
-        _snprintf_s(location, sizeof(location), _TRUNCATE, "https://%s:%s%s", host, tls_port, path);
-
-    /* 4) Minimal RFC-compliant redirect */
-    char resp[600];
-    int n = _snprintf_s(resp, sizeof(resp), _TRUNCATE,
-        "HTTP/1.1 308 Permanent Redirect\r\n"
-        "Location: %s\r\n"
-        "Content-Length: 0\r\n"
-        "Connection: close\r\n"
-        "Server: uhttps-%s\r\n"
-        "\r\n",
-        location, UHTTPS_VERSION);
-
-     io_write(&pData->conn, resp, (size_t)n);
-#endif
-    return 0;
-}
 
   // translate file extension into HTTP content-type field
   // Get extension type 
@@ -558,6 +492,64 @@ BOOL ExtractFileName(const char *szHttpRequest, size_t request_length, char *szF
     return TRUE;
 } // ExtractFileName
 
+// Extract The host from the HTTP request (Needed to redirect)
+BOOL ExtractHostName(const char *szHttpRequest, size_t request_length, char *szHostName, int host_size)
+{
+const char *pCur=NULL, *pEnd;
+int         len, ark=0;
+   host_size--; // leave a place for the ending 0
+   // search for a new line :
+   for ( pCur=szHttpRequest ; pCur!=NULL ; pCur=strchr (pCur, '\n') )
+   {
+       pCur++; // begining of next line
+       if (     request_length - (pCur-szHttpRequest) > sizeof ("Host:1.1.1.1") 
+             && strncasecmp (pCur, "Host:", sizeof ("Host:")-1)==0 )
+        {
+             pCur += sizeof ("Host:")-1;
+             while (*pCur==' ') pCur++;
+             // search for ':' or end of line 
+             for (ark=0 ; 
+                  ark<host_size && *pCur!=0 && *pCur!=':' && !isspace(*pCur); 
+                  ark++, pCur++)
+                  szHostName[ark]=*pCur;
+        }
+   }
+   szHostName[ark]=0;
+return ark!=0 ;
+} // ExtractHostName
+
+
+// Minimal HTTP->HTTPS redirect (no Host:, no query handling) 
+int SendRedirect2Https (struct S_ThreadData *pData) 
+{
+char host[256];
+char path[256];
+char resp[200+256+256];
+
+    LOG(DEBUG, "Incoming Request: %s\n", pData->buf);
+    if (!ExtractHostName(pData->buf, pData->buflen, host, sizeof host))
+    {
+        LOG(WARN, "Can not retrieve Host parameter\n");
+        return FALSE;
+    }
+    strcpy (path, "/");
+    ExtractFileName (pData->buf, pData->buflen, path+1, (int)sizeof(path)-1 ); 
+    LOG(DEBUG, "EXtract: host is %s, path is %s\n", host, path);
+    /* Minimal RFC-compliant redirect */
+    int n = _snprintf_s(resp, sizeof(resp), _TRUNCATE,
+        "HTTP/1.1 308 Permanent Redirect\r\n"
+        "Location: https://%s:%s%s\r\n"
+        "Content-Length: 0\r\n"
+        "Connection: close\r\n"
+        "Server: uhttps-%s\r\n"
+        "\r\n",
+        host, sSettings.szTlsPort,
+        path,
+        UHTTPS_VERSION);
+     LOG (DEBUG, "redirection message:\n%s", resp);
+     io_write(&pData->conn, resp, (size_t)n);
+return TRUE;
+} // SendRedirect2Https
 
 
   // Read request and extract file name
@@ -572,7 +564,7 @@ int DecodeHttpRequest(struct S_ThreadData *pData, size_t request_length)
     pData->buf[request_length++] = 0;
 
     // dump complete request
-        LOG (DEBUG, "client request:\n<<---\n%s<<---\n", pData->buf);
+    LOG (DEBUG, "client request:\n<<---\n%s<<---\n", pData->buf);
 
     // ensure request is a GET or HEAD
     CharUpperBuff(pData->buf, sizeof "GET " - 1);
@@ -659,6 +651,7 @@ THREAD_RET WINAPI HttpTransferThread(void * lpParam)
     // redirect to HTTPS ?
     if (!pData->conn.bTLS && sSettings.bTLS && sSettings.bRedirectHttp) 
     {
+        LOG(DEBUG, "redirecteing\n");
         SendRedirect2Https(pData);
         goto cleanup;
     }

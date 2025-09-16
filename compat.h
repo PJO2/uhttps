@@ -13,8 +13,9 @@
 #include <strsafe.h>
 #include <process.h>
 #include <BaseTsd.h>
+#include <stdlib.h>
+#include <Iphlpapi.h>
 
-#include "win-dyn-load-tls.h"
 
 #define snprintf _snprintf 
 #define vsnprintf _vsnprintf 
@@ -35,17 +36,17 @@ typedef unsigned THREAD_RET;
 
 #define INVALID_THREAD_VALUE (THREAD_ID) -0
 
-THREAD_ID _startnewthread(THREAD_RET(WINAPI* lpStartAddress) (void*),
+static inline THREAD_ID _startnewthread(THREAD_RET(WINAPI* lpStartAddress) (void*),
 	void* lpParameter)
 {
 	return (THREAD_ID)_beginthreadex(NULL, 0, lpStartAddress, lpParameter, 0, NULL);
 }
-void _waitthreadend(THREAD_ID ThId) { WaitForSingleObject(ThId, INFINITE);   }
-void _killthread(THREAD_ID ThId)    { TerminateThread(ThId, (DWORD) 0xCAFE); }
+static inline void _waitthreadend(THREAD_ID ThId) { WaitForSingleObject(ThId, INFINITE);   }
+static inline void _killthread(THREAD_ID ThId)    { TerminateThread(ThId, (DWORD) 0xCAFE); }
 
 
 // millisecond sleep (native for Windows, not for unix)
-void ssleep(int msec) { Sleep(msec); }
+static inline void ssleep(int msec) { Sleep(msec); }
 
 // socket portability
 #ifndef SO_REUSEPORT

@@ -1,6 +1,7 @@
 
 //
 // dynamicall load OpenSSL functions at runtime on Windows
+// much simpled on linux (-lssl -lcrypto !!)
 //
 
 // win-dyn-load-tls.c
@@ -74,10 +75,9 @@ static FARPROC need(HMODULE h, const char* dll, const char* name) {
 
 static HMODULE load_single_dll(const char* dir, const char* name) {
     HMODULE h = NULL;
+    char path[MAX_PATH * 2];
     if (dir && *dir) {
-        char path[MAX_PATH * 2];
         _snprintf_s(path, sizeof(path), _TRUNCATE, "%s\\%s", dir, name);
-        LOG(INFO, "Trying to load DLL %s\n", path);
         SetLastError(0);
         h = LoadLibraryExA(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
         if (!h) LOG(DEBUG, "LoadLibraryExA('%s') failed (err=%lu)\n", path, GetLastError());
@@ -89,6 +89,7 @@ static HMODULE load_single_dll(const char* dir, const char* name) {
         h = LoadLibraryExA(name, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
         if (!h) LOG(DEBUG, "LoadLibraryExA('%s') failed (err=%lu)\n", name, GetLastError());
     }
+    LOG(INFO, "Loading DLL %s...%s\n", path, h==NULL ? "NOK": "OK");
     return h;
 } // load_single_dll
 

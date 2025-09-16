@@ -12,19 +12,9 @@
 
 // Changes:
 
-#define _CRT_SECURE_NO_WARNINGS	1
-#define _CRT_SECURE_NO_DEPRECATE
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
-#include <ctype.h>
-#include <assert.h>
+#include "compat.h"
 
-#ifdef UNIX
-typedef int            BOOL;
-#endif 
 
 #include "uhttps.h"
 #include "log.h"
