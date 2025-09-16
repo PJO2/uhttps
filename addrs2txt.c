@@ -26,6 +26,8 @@
 #include <netdb.h>
 
 typedef struct sockaddr_storage SOCKADDR_STORAGE;
+typedef int BOOL;
+enum { FALSE=0, TRUE};
 #endif
 
 #include "dump_addrs.h"
@@ -186,8 +188,8 @@ int ark;
     int count=0;
     for (struct ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next) 
        count++;
-    // printf ("allocating %d slots\n", count);
-    pT->sas = calloc (sizeof(struct sockaddr), count);
+    printf ("allocating %d slots of %d bytes\n", count, sizeof(pT->sas[0]));
+    pT->sas = calloc (sizeof(pT->sas[0]) , count);
     if (pT->sas==NULL) return NULL;
     for (struct ifaddrs* ifa = ifaddr; ifa; ifa = ifa->ifa_next) {
         if (!ifa->ifa_addr) continue;
@@ -218,9 +220,9 @@ char buf [505];
     for (int ark=0 ; ark<3 ; ark++)
     {
        printf ("\nfamily is %d\n", families[ark]);
-       get_local_addresses_wrapper(& sAddr, families[ark], TRUE);
+       get_local_addresses_wrapper(& sAddr, families[ark], FALSE);
        addrs2txt(buf, sizeof buf, &sAddr, families[ark], ", ");
-       printf (buf);
+       printf ("%s\n", buf);
        free (sAddr.sas);
     }
 #ifdef _WIN32
