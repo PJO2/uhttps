@@ -5,7 +5,7 @@
 //
 
 // win-dyn-load-tls.c
-#ifdef _WIN32
+#if defined (_WIN32) and defined (UHTTPS_OPENSSL_DYNAMIC)
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
