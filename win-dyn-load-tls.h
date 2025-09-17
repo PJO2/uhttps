@@ -2,7 +2,8 @@
 // win-dyn-load-tls.h
 #pragma once
 
-#ifdef _WIN32
+#if defined (_WIN32) && defined (UHTTPS_OPENSSL_DYNAMIC) 
+ 
 
 #include <windows.h>
 #include <openssl/ssl.h>
@@ -12,7 +13,7 @@
 	int  tls_dyn_load(void);    // load crypto.DLL + libssl.DLL 
 	void tls_dyn_unload(void);  // optionnel
 
-	// --- Pointeurs (préfixe p_) ---
+	// --- pointers---
 	extern const SSL_METHOD* (*p_TLS_server_method)(void);
 	extern SSL_CTX* (*p_SSL_CTX_new)(const SSL_METHOD*);
 	extern void      (*p_SSL_CTX_free)(SSL_CTX*);
@@ -34,7 +35,6 @@
 	extern int  (*p_SSL_CTX_use_PrivateKey_file)(SSL_CTX*, const char*, int);
 	extern int  (*p_SSL_CTX_check_private_key)(const SSL_CTX*);
 	// extern int  (*p_SSL_CTX_set_min_proto_version)(SSL_CTX*, int);
-	// (Ajoute d’autres symboles si nécessaire)
 	extern const SSL_CIPHER* (*p_SSL_get_current_cipher)(const SSL*);
 	extern const char* (*p_SSL_CIPHER_get_name)(const SSL_CIPHER*);
 	extern const char* (*p_SSL_get_version)(const SSL*);

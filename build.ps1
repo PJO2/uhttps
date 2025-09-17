@@ -7,11 +7,11 @@ $VSVCVARS  = 'C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxilia
 # OpenSSL (adjust LIB paths to where your static libs live)
 $OPENSSL32_INC = 'C:\Program Files (x86)\OpenSSL-Win32\include'
 $OPENSSL32_BIN = 'C:\Program Files (x86)\OpenSSL-Win32\bin'
-$OPENSSL32_LIB = 'C:\Program Files (x86)\OpenSSL-Win32\lib\VC\x86\MT'
+$OPENSSL32_LIB = 'C:\Program Files (x86)\OpenSSL-Win32\lib\VC\x86'  # do not add MT or MD
 
 $OPENSSL64_INC = 'C:\Program Files\OpenSSL-Win64\include'
 $OPENSSL64_BIN = 'C:\Program Files\OpenSSL-Win64\bin'
-$OPENSSL64_LIB = 'C:\Program Files\OpenSSL-Win64\lib\VC\x64\MT'
+$OPENSSL64_LIB = 'C:\Program Files\OpenSSL-Win64\lib\VC\x64'  # do not add MT or MD
 
 $OUTDIR   = 'WindowsBinaries'
 $RCFILE   = 'uhttps.rc'
@@ -43,7 +43,8 @@ function Invoke-Build {
     $libs    = 'ws2_32.lib iphlpapi.lib user32.lib crypt32.lib bcrypt.lib'
     $ldflags = '/link /DYNAMICBASE /NXCOMPAT /guard:cf /INCREMENTAL:NO /OPT:REF /OPT:ICF'
     $includes = "/I `"$OPENSSL_INC`""
-    $libpath  = "/LIBPATH:`"$OPENSSL_LIB`""
+    $crtpath = $crt.SubString(1)
+    $libpath  = "/LIBPATH:`"$OPENSSL_LIB\$crtpath`""
 
     if ($Flavor -eq 'DYNAMIC') {
         # Keep dyn loader; just mark it if you branch behavior by macro
@@ -53,7 +54,7 @@ function Invoke-Build {
         # Static OpenSSL link
         $libs  += ' libssl_static.lib libcrypto_static.lib'
         # If you hit unresolved externals, you may need: advapi32.lib zlibstatic.lib
-        # $libs  += ' advapi32.lib zlibstatic.lib'
+        $libs  += ' advapi32.lib zlibstatic.lib'
     }
 
     # Build one pass inside a fresh cmd.exe so vcvarsall doesn't pollute the PS session

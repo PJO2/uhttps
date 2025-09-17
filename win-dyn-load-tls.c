@@ -5,7 +5,8 @@
 //
 
 // win-dyn-load-tls.c
-#if defined (_WIN32) and defined (UHTTPS_OPENSSL_DYNAMIC)
+#if defined (_WIN32) && defined (UHTTPS_OPENSSL_DYNAMIC) 
+
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
@@ -178,6 +179,7 @@ void tls_dyn_unload(void) {
     if (hCRYPTO) { FreeLibrary(hCRYPTO); hCRYPTO = NULL; }
     g_loaded = 0;
 }
-#endif // _WIN32
+#endif // defined (_WIN32) && defined (UHTTPS_OPENSSL_DYNAMIC) 
+
 
 
