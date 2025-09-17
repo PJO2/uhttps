@@ -12,6 +12,13 @@ set "SOURCES=uhttps.c log.c cmd_line.c win-dyn-load-tls.c addrs2txt.c"
 set "RCFILE=uhttps.rc"
 REM ========================
 
+REM -- Check thumbprint --
+if "%SIGN_CERT_THUMBPRINT%"=="" (
+    echo [ERROR] SIGN_CERT_THUMBPRINT is not defined. Please set it before running this script.
+    exit /b 1
+)
+set SIGNTOOL="C:\Program Files (x86)\Windows Kits\10\App Certification Kit\signtool.exe"
+
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 
 call :build x64 "%OPENSSL64_INC%" "%OPENSSL64_BIN%" "%OUTDIR%\uhttps64.exe" || goto :eof
@@ -50,7 +57,12 @@ if errorlevel 1 (echo [ERROR] build failed for %ARCH% & endlocal & exit /b 1)
 
 del /q *.obj *.exp *.lib *.res >nul 2>&1
 
-echo Built: "%OUTEXE%"
+
+%SIGNTOOL% sign /sha1 %SIGN_CERT_THUMBPRINT% /tr http://time.certum.pl /td sha256 /fd sha256 /v "%OUTDIR%\uhttps64.exe"
+%SIGNTOOL% sign /sha1 %SIGN_CERT_THUMBPRINT% /tr http://time.certum.pl /td sha256 /fd sha256 /v "%OUTDIR%\uhttps32.exe"
+
+
+echo Built and Sign: "%OUTEXE%"
 echo To run: set UHTTPS_OPENSSL_DIR=%OPENSSL_BIN%
 echo         "%OUTEXE%" -v --tls --cert server.crt --key server.key
 
