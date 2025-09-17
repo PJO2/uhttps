@@ -30,6 +30,7 @@ function Invoke-Build {
         [Parameter(Mandatory)] [ValidateSet('x64','x86')] $Arch,
         [Parameter(Mandatory)] [ValidateSet('DYNAMIC','STATIC')] $Flavor,
         [Parameter(Mandatory)] [ValidateSet('/MD','/MT')] $CRT,
+        [Parameter(Mandatory)] [string] $CFlags,
         [Parameter(Mandatory)] [string] $OPENSSL_INC,
         [Parameter(Mandatory)] [string] $OPENSSL_LIB,
         [Parameter(Mandatory)] [string] $OPENSSL_BIN,
@@ -41,7 +42,7 @@ function Invoke-Build {
     # Common flags
     $cdefs   = '/DWIN32_LEAN_AND_MEAN /D_CRT_SECURE_NO_WARNINGS'
     $libs    = 'ws2_32.lib iphlpapi.lib user32.lib crypt32.lib bcrypt.lib'
-    $ldflags = '/link /DYNAMICBASE /NXCOMPAT /guard:cf /INCREMENTAL:NO /OPT:REF /OPT:ICF /DEBUG:FASTLINK'
+    $ldflags = '/link /DYNAMICBASE /NXCOMPAT /guard:cf /INCREMENTAL:NO /OPT:REF /OPT:ICF /STACK:65536'
     $includes = "/I `"$OPENSSL_INC`""
     $crtpath = $crt.SubString(1)
     $libpath  = "/LIBPATH:`"$OPENSSL_LIB\$crtpath`""
@@ -62,9 +63,10 @@ function Invoke-Build {
         "call `"$VSVCVARS`" $Arch"
         "rc /nologo /fo uhttps.res `"$RCFILE`""
         # cl note: /LIBPATH must be AFTER /link
-        $cmdLine = "cl /nologo /W4 /O2 $CRT /Gy /Zc:inline $cdefs $includes /Fe:`"$OutExe`" $SOURCES uhttps.res $ldflags $libpath $libs"
+        $cmdLine = "cl $CFlags $cdefs $CRT $includes /Fe:`"$OutExe`" $SOURCES uhttps.res $ldflags $libpath $libs"
         Write-Host $cmdLine -ForegroundColor Cyan
-        "cl /nologo /W4 /O2 $CRT /Gy /Zc:inline $cdefs $includes /Fe:`"$OutExe`" $SOURCES uhttps.res $ldflags $libpath $libs"
+
+        "cl $CFlags $cdefs $CRT $includes /Fe:`"$OutExe`" $SOURCES uhttps.res $ldflags $libpath $libs"
         # Clean intermediates (quiet)
         "del /q *.obj *.exp *.lib *.res 2>nul"
     ) -join " && "
@@ -105,10 +107,16 @@ function Invoke-Build {
 }
 
 # ---- Build matrix ----
-#Invoke-Build -Arch x64 -Flavor DYNAMIC -CRT /MD -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64.exe')
-Invoke-Build -Arch x86 -Flavor DYNAMIC -CRT /MD -OPENSSL_INC $OPENSSL32_INC -OPENSSL_LIB $OPENSSL32_LIB -OPENSSL_BIN $OPENSSL32_BIN -OutExe (Join-Path $OUTDIR 'uhttps32.exe')
-#Invoke-Build -Arch x64 -Flavor STATIC  -CRT /MT -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64-nodll.exe')
-#Invoke-Build -Arch x86 -Flavor STATIC  -CRT /MT -OPENSSL_INC $OPENSSL32_INC -OPENSSL_LIB $OPENSSL32_LIB -OPENSSL_BIN $OPENSSL32_BIN -OutExe (Join-Path $OUTDIR 'uhttps32-nodll.exe')
+
+# no optimization for x86/MD since it triggers antivirus detection
+$Cx64Flags = "/nologo /W4 /O2 /Gy /Zc:inline"
+$Cx86Flags = "/nologo /W4 /Gy /Zc:inline"
+
+
+Invoke-Build -Arch x64 -Flavor DYNAMIC -CRT /MD -CFlags $Cx64Flags -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64.exe')
+Invoke-Build -Arch x86 -Flavor DYNAMIC -CRT /MD -CFlags $Cx86Flags -OPENSSL_INC $OPENSSL32_INC -OPENSSL_LIB $OPENSSL32_LIB -OPENSSL_BIN $OPENSSL32_BIN -OutExe (Join-Path $OUTDIR 'uhttps32.exe')
+Invoke-Build -Arch x64 -Flavor STATIC  -CRT /MT -CFlags $Cx64Flags -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64-nodll.exe')
+Invoke-Build -Arch x86 -Flavor STATIC  -CRT /MT -CFlags $Cx86Flags -OPENSSL_INC $OPENSSL32_INC -OPENSSL_LIB $OPENSSL32_LIB -OPENSSL_BIN $OPENSSL32_BIN -OutExe (Join-Path $OUTDIR 'uhttps32-nodll.exe')
 
 # compute hash
 $md5File   = Join-Path $OUTDIR 'MD5SUMS'
