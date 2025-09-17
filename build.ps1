@@ -110,4 +110,17 @@ Invoke-Build -Arch x86 -Flavor DYNAMIC -CRT /MD -OPENSSL_INC $OPENSSL32_INC -OPE
 Invoke-Build -Arch x64 -Flavor STATIC  -CRT /MT -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64-nodll.exe')
 Invoke-Build -Arch x86 -Flavor STATIC  -CRT /MT -OPENSSL_INC $OPENSSL32_INC -OPENSSL_LIB $OPENSSL32_LIB -OPENSSL_BIN $OPENSSL32_BIN -OutExe (Join-Path $OUTDIR 'uhttps32-nodll.exe')
 
+# compute hash
+$md5File   = Join-Path $OUTDIR 'MD5SUMS'
+$sha1File= Join-Path $OUTDIR 'SHA1SUMS'
+Remove-Item -LiteralPath $md5File,$sha1File -ErrorAction SilentlyContinue
+$exeFiles = Get-ChildItem -Path $OUTDIR -Filter '*.exe' -File | Sort-Object Name
+foreach ($file in $exeFiles) {
+    $sha1 = $file.Name + ":`t" + $($(Get-FileHash -Path $file.FullName -Algorithm SHA1).Hash)
+    $md5  = $file.Name + ":`t" + $($(Get-FileHash -Path $file.FullName -Algorithm MD5).Hash)
+    Add-Content -Path $sha1File -Value $sha1
+    Add-Content -Path $md5File -Value $md5
+    Write-Host "$($file.Name): $($sha1)"
+}
+
 Write-Host "`n==== Build complete ===="
