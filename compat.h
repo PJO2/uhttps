@@ -12,6 +12,7 @@
 #include <ws2tcpip.h>
 #include <strsafe.h>
 #include <process.h>
+#include <assert.h>
 #include <BaseTsd.h>
 #include <stdlib.h>
 #include <Iphlpapi.h>
@@ -71,6 +72,7 @@ static inline void ssleep(int msec) { Sleep(msec); }
 #include <stdint.h>
 #include <inttypes.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>

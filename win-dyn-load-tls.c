@@ -1,7 +1,7 @@
 
 //
 // dynamicall load OpenSSL functions at runtime on Windows
-// much simpled on linux (-lssl -lcrypto !!)
+// much simpler on linux (-lssl -lcrypto !!)
 //
 
 // win-dyn-load-tls.c

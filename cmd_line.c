@@ -304,7 +304,6 @@ int SanityChecks (const struct S_Settings *p)
     if (!sSettings.bIPv4 && !sSettings.bIPv6)
     {
         die_bad("IPv4 and IPv6 both disabled (use -4 or -6, not both)", NULL);
-        return FALSE;
     }
 
     /* Clamp verbosity into known range if your enum defines bounds */

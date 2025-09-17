@@ -12,22 +12,9 @@
 
 
 
-#define _CRT_SECURE_NO_WARNINGS	1
-#define _CRT_SECURE_NO_DEPRECATE
-
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <string.h>
-#include <assert.h>
-#include <errno.h>
-
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-// avoid warning "variable set but unused"
-#define __DUMMY(x) ( (void) (x) )
 
 #define INVALID_FILE_VALUE NULL
 
@@ -822,7 +809,7 @@ THREAD_ID StartHttpThread (SOCKET ClientSocket, const SOCKADDR_STORAGE *sa, BOOL
     if (nbThreads >= sSettings.max_threads)
     {
         LOG (WARN, "request rejected: too many simultaneous transfers\n");
-                return INVALID_THREAD_VALUE;
+        return INVALID_THREAD_VALUE;
     }
     else
     {
@@ -860,7 +847,7 @@ THREAD_ID StartHttpThread (SOCKET ClientSocket, const SOCKADDR_STORAGE *sa, BOOL
              SSL_set_fd(pCur->conn.ssl, ClientSocket);
              if (SSL_accept(pCur->conn.ssl) <= 0) 
              {
-                LOG(ERROR, "TLS handshake failed\n");
+                LOG(DEBUG, "TLS handshake failed\n");
                 SSL_free(pCur->conn.ssl); pCur->conn.ssl = NULL;
                 closesocket(ClientSocket);
                 free(pCur->buf); free(pCur);                   

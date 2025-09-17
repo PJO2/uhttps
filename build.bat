@@ -8,5 +8,5 @@ cl /nologo /W4 /O2 /MT ^
                    /DYNAMICBASE /NXCOMPAT /guard:cf /INCREMENTAL:NO /OPT:REF /OPT:ICF
 del *.obj
 set UHTTPS_OPENSSL_DIR=C:\Program Files\OpenSSL-Win64\bin
-echo "start program with WindowsBinaries/uhttps64.exe -v -tls --cert server.crt --key server.key"
+echo "start program with WindowsBinaries\uhttps64.exe -v --tls --cert server.crt --key server.key"
 
