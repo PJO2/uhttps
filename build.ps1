@@ -41,7 +41,7 @@ function Invoke-Build {
     # Common flags
     $cdefs   = '/DWIN32_LEAN_AND_MEAN /D_CRT_SECURE_NO_WARNINGS'
     $libs    = 'ws2_32.lib iphlpapi.lib user32.lib crypt32.lib bcrypt.lib'
-    $ldflags = '/link /DYNAMICBASE /NXCOMPAT /guard:cf /INCREMENTAL:NO /OPT:REF /OPT:ICF'
+    $ldflags = '/link /DYNAMICBASE /NXCOMPAT /guard:cf /INCREMENTAL:NO /OPT:REF /OPT:ICF /DEBUG:FASTLINK'
     $includes = "/I `"$OPENSSL_INC`""
     $crtpath = $crt.SubString(1)
     $libpath  = "/LIBPATH:`"$OPENSSL_LIB\$crtpath`""
@@ -105,10 +105,10 @@ function Invoke-Build {
 }
 
 # ---- Build matrix ----
-Invoke-Build -Arch x64 -Flavor DYNAMIC -CRT /MD -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64.exe')
+#Invoke-Build -Arch x64 -Flavor DYNAMIC -CRT /MD -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64.exe')
 Invoke-Build -Arch x86 -Flavor DYNAMIC -CRT /MD -OPENSSL_INC $OPENSSL32_INC -OPENSSL_LIB $OPENSSL32_LIB -OPENSSL_BIN $OPENSSL32_BIN -OutExe (Join-Path $OUTDIR 'uhttps32.exe')
-Invoke-Build -Arch x64 -Flavor STATIC  -CRT /MT -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64-nodll.exe')
-Invoke-Build -Arch x86 -Flavor STATIC  -CRT /MT -OPENSSL_INC $OPENSSL32_INC -OPENSSL_LIB $OPENSSL32_LIB -OPENSSL_BIN $OPENSSL32_BIN -OutExe (Join-Path $OUTDIR 'uhttps32-nodll.exe')
+#Invoke-Build -Arch x64 -Flavor STATIC  -CRT /MT -OPENSSL_INC $OPENSSL64_INC -OPENSSL_LIB $OPENSSL64_LIB -OPENSSL_BIN $OPENSSL64_BIN -OutExe (Join-Path $OUTDIR 'uhttps64-nodll.exe')
+#Invoke-Build -Arch x86 -Flavor STATIC  -CRT /MT -OPENSSL_INC $OPENSSL32_INC -OPENSSL_LIB $OPENSSL32_LIB -OPENSSL_BIN $OPENSSL32_BIN -OutExe (Join-Path $OUTDIR 'uhttps32-nodll.exe')
 
 # compute hash
 $md5File   = Join-Path $OUTDIR 'MD5SUMS'
