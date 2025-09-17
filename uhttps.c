@@ -15,6 +15,8 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+// avoid warning "variable set but unused"
+#define __DUMMY(x) ( (void) (x) )
 
 #define INVALID_FILE_VALUE NULL
 
@@ -809,7 +811,7 @@ THREAD_ID StartHttpThread (SOCKET ClientSocket, const SOCKADDR_STORAGE *sa, BOOL
     if (nbThreads >= sSettings.max_threads)
     {
         LOG (WARN, "request rejected: too many simultaneous transfers\n");
-        return INVALID_THREAD_VALUE;
+                return INVALID_THREAD_VALUE;
     }
     else
     {
