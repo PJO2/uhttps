@@ -54,7 +54,7 @@ function Invoke-Build {
         # Static OpenSSL link
         $libs  += ' libssl_static.lib libcrypto_static.lib'
         # If you hit unresolved externals, you may need: advapi32.lib zlibstatic.lib
-        $libs  += ' advapi32.lib zlibstatic.lib'
+        $libs  += ' advapi32.lib'
     }
 
     # Build one pass inside a fresh cmd.exe so vcvarsall doesn't pollute the PS session
