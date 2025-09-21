@@ -463,7 +463,7 @@ BOOL ExtractFileName(const char *szHttpRequest, size_t request_length, char *szF
 
     // go to end of line
     pEnd = strpbrk(pCur, "\r\n ?");
-    if (*pEnd != ' ' && *pEnd != '?')		// if anormal endings
+    if (pEnd==NULL || *pEnd != ' ' && *pEnd != '?')		// if anormal endings
     {
         return FALSE;
     }
