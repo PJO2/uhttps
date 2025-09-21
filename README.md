@@ -16,6 +16,15 @@ It is written in **pure C**, using only portable file and socket APIs.
  **uhttps is made for you!**
 
 ---
+## Related Project
+
+If you only need **plain HTTP** (no TLS/HTTPS), check out  
+👉 [uweb](https://github.com/PJO2/uweb) — the original tiny HTTP server this project is based on.  
+
+- Even smaller footprint  
+- Same command-line interface  
+- Ideal for quick tests, embedded use, or environments where TLS is handled upstream (reverse proxy, load balancer,
+---
 
 ## Usage
 
