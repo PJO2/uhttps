@@ -1,56 +1,126 @@
 # uhttps
-A tiny multi-threaded https server for MacOS, Linux and Windows, released under GPLv2 !
 
-uhttps is designed to be a portable, static HTTPs server, with high security, high performance and very small footprint.
-uhttps is written in pure C using portable stream file and socket API. 
+A **tiny, multi-threaded HTTPS server** for **macOS, Linux, and Windows**, released under **GPLv2**.
 
-- Have you ever wanted to set up a web server in a few seconds without spending hours in the documentation or consuming to much resources ?
-- Do you want to know how to write a server based on the socket programming APIs, writing IPv4/IPv6 agnostic applications  ? Or managing a pool of worker threads ?
-- Do you want a Web server that you can easily customize ? 
+`uhttps` is designed to be **portable**, **secure**, and **lightweight**, with a **very small footprint** and **high performance**.  
+It is written in **pure C**, using only portable file and socket APIs.
 
-uhttps is made for you !
+---
 
-### Usage:
+## Why uhttps?
 
- uhttps   [-4|-6] [-p port] [-d dir] [-i addr] [-c content-type|-ct|-cb]
-          [-g msec] [-s max connections] [-verbose] [-x file]
+- Need to spin up an **HTTP/HTTPS server in seconds** without complex configuration?  
+- Curious about socket programming, IPv4/IPv6 agnostic applications, or thread pool management?  
+- Looking for a minimal, embeddable web server with TLS support?  
 
-      -4   use only IPv4 protocol
-      -6   use only IPv6 protocol
-      -c   define the content-type assigned to unknown files
-           (the default is to reject unregistered types
-           -ct is a shortcut for:    -c "text/plain"
-           -cb is a shortcut for:    -c "application/octet-stream"
-      -d   change base directory for HMTL content 
-           (the default is to use the current directory)
-      -g   slow down transfer by waiting for x msc between two frames
-      -i   restrict uweb to listen only this IP address
-      -p   change HTTP port (defaut is 8080), 
-           using ports below 1024 need root privileges
-      -s   chnage the maximum simultaneous connections (default is 1024)
-      -v   verbose
-      -x   set the default page for a directory (default is index.html)
+ **uhttps is made for you!**
 
+---
 
-### Set up for Linux and MacOS
-get the source, compile, run :
+## Usage
 
-    $ git clone https://github.com/PJO2/uhttps
-    $ cd uhttps
-    $ make
-    $ ./uhttps -v 
+```text
+uhttps [-4|-6] [-p port] [-d dir] [-i addr] [-c type|-ct|-cb] [-g msec] [-s max] [-v] [-x file]
+       [--tls] [--cert file] [--key file] [--redirect-http]
+```
 
+### General options
 
-### set up for windows
-Even easier : get the binaries and run !
+- `-4` Use IPv4 only  
+- `-6` Use IPv6 only  
+- `-c` Define content-type for unknown files  
+   - Default: reject unregistered types  
+   - `-ct` = `-c "text/plain"`  
+   - `-cb` = `-c "application/octet-stream"`  
+- `-d` Set base directory for HTML content (default: current directory)  
+- `-g` Delay transfers by *x* ms between frames (simulate slow link)  
+- `-i` Bind server to a specific IP address  
+- `-p` Change port (default: `8080` for HTTP, `8443` for HTTPS)  
+   - Ports < 1024 require root/administrator privileges  
+- `-s` Set maximum simultaneous connections (default: `1024`)  
+- `-v` Verbose output  
+- `-x` Default page for a directory (default: `index.html`)  
 
-    > git clone https://github.com/PJO2/uhttps
-    > uhttps\WindowsBinaries\uhttps32.exe -v 
+### TLS / HTTPS options
 
-    The Pelles C makefile is included in order to create the binaries
+- `--tls` Enable HTTPS support  
+- `--cert <file>` Path to server certificate (PEM format)  
+- `--key <file>` Path to private key (PEM format)  
+- `--redirect-http` Redirect plain HTTP (`http://`) requests to HTTPS (`https://`)  
 
-### test it
-from a local web browser open this URL : http://127.0.0.1:8080/
+---
 
+## Build & Run
 
+### Linux / macOS
 
+```bash
+git clone https://github.com/PJO2/uhttps
+cd uhttps
+make
+./uhttps --tls --cert server.crt --key server.key -v
+```
+
+### Windows
+
+Use the prebuilt binaries:  
+
+```powershell
+git clone https://github.com/PJO2/uhttps
+uhttps\WindowsBinaries\uhttps32.exe --tls --cert server.crt --key server.key -v
+```
+
+A **Build procedure using Visual Studio** is included if you prefer to build your own binaries.
+
+---
+
+## Quick Test
+
+Generate a **self-signed certificate** (example for Linux/macOS):
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt -days 365
+```
+
+Start the server with HTTPS:
+
+```bash
+./uhttps --tls --cert server.crt --key server.key -v
+```
+
+Open your browser at:  
+
+👉 [https://127.0.0.1:8443/](https://127.0.0.1:8443/)  
+
+*(you may need to accept the self-signed certificate in your browser)*
+
+---
+
+## Advanced Example: HTTP + HTTPS with Redirect
+
+A common setup is to serve **HTTP on port 8080** and automatically redirect all traffic to **HTTPS on port 8443**.
+
+1. Create certificate and key (if not done yet):
+
+```bash
+openssl req -x509 -newkey rsa:2048 -nodes -keyout server.key -out server.crt -days 365
+```
+
+2. Run uhttps with both HTTP and HTTPS:
+
+```bash
+# HTTP server on port 8080 + HTTPS server on port 8443 with redirect
+./uhttps -p 8080 --tls --cert server.crt --key server.key --redirect-http -v
+```
+
+3. Test:
+
+- Visiting [http://127.0.0.1:8080/](http://127.0.0.1:8080/) will redirect to  
+  [https://127.0.0.1:8443/](https://127.0.0.1:8443/).  
+- All secure content will be served on HTTPS.
+
+---
+
+## License
+
+Released under the **GNU General Public License v2 (GPLv2)**.
