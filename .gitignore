@@ -2,14 +2,12 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
-uweb
-uweb.exe
-printf.c
+_setvars.ps1
+uhttps
 /.vs
-/Debug
-/Release
-/x64
-/Win32/Release
-*.pdb
-/Win32/Debug
+test/index.html
 /output
+CppProperties.json
+version.aps
+WindowsBinaries/*.pdb
+*.pdb
