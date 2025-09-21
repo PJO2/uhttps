@@ -76,8 +76,26 @@ Use the prebuilt binaries:
 
 ```powershell
 git clone https://github.com/PJO2/uhttps
-uhttps\WindowsBinaries\uhttps32.exe --tls --cert server.crt --key server.key -v
+uhttps\WindowsBinaries\uhttps64-nodll.exe --tls --cert server.crt --key server.key -v
 ```
+
+## Windows Binaries
+
+Prebuilt Windows executables are available in the [`WindowsBinaries`](https://github.com/PJO2/uhttps/tree/main/WindowsBinaries) folder.  
+Two editions are provided:
+
+### 🔹 Dynamic build
+- Much **smaller executable size**  
+- Requires the **Microsoft Visual C++ Runtime** (`vcruntime140.dll` or newer)  
+- Requires **OpenSSL DLLs** (`libssl-*.dll`, `libcrypto-*.dll`) to be present in the same directory or in the system path  
+- Recommended if you want a minimal footprint and already have the runtime/dlls installed  
+
+### 🔹 Static build
+- Larger executable size  
+- **Self-contained**: no dependency on external DLLs (Visual C++ runtime or OpenSSL)  
+- Recommended for maximum portability (drop & run)  
+
+👉 If in doubt, start with the **static build** for easiest usage.
 
 A **Build procedure using Visual Studio** is included if you prefer to build your own binaries.
 
