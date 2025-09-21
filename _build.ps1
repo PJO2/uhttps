@@ -125,8 +125,8 @@ function Write-Checksums {
 
     $exeFiles = Get-ChildItem -Path $OUTDIR -Filter '*.exe' -File | Sort-Object Name
     foreach ($file in $exeFiles) {
-        $md5     = (Get-FileHash -Path $file.FullName -Algorithm MD5).Hash
-        $sha256  = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash
+        $md5     = (Get-FileHash -Path $file.FullName -Algorithm MD5).Hash.ToLower()
+        $sha256  = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash.ToLower()
         Add-Content -Path $md5File    -Value ("{0}`t{1}" -f $file.Name, $md5)
         Add-Content -Path $sha256File -Value ("{0}`t{1}" -f $file.Name, $sha256)
         Write-Host ("{0}: MD5={1}  SHA256={2}" -f $file.Name, $md5, $sha256)
@@ -190,8 +190,8 @@ function Get-VTAnalysisSummary {
     param(
         [Parameter(Mandatory)] [string] $AnalysisId,
         [Parameter(Mandatory)] [string] $ApiKey,
-        [int] $MaxAttempts = 12,      # ~24s total by default
-        [int] $SleepSeconds = 2
+        [int] $MaxAttempts = 12,      # ~1 minute total by default
+        [int] $SleepSeconds = 5
     )
     $curl = 'C:\Windows\System32\curl.exe'
     if (-not (Test-Path $curl)) {
