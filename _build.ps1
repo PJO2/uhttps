@@ -73,6 +73,7 @@ function Invoke-Build {
         "call `"$VSVCVARS`" $Arch"
         "rc /nologo /fo uhttps.res `"$RCFILE`""
         # cl note: /LIBPATH must be AFTER /link
+        $CRT = '/MT'
         $cmdLine = "cl $CFlags $cdefs $CRT $includes /Fe:`"$OutExe`" $SOURCES uhttps.res $ldflags $libpath $libs"
         Write-Host $cmdLine -ForegroundColor Cyan
 
