@@ -313,11 +313,11 @@ SOCKET BindServiceSocket(const char *port, const char *sz_bind_addr)
 } // BindServiceSocket
 
 // read, send and close wrappers
-static ssize_t io_read(conn_t *c, void *buf, size_t n) {
+static ssize_t io_read(conn_t *c, void *buf, int n) {
     return c->ssl ? SSL_read(c->ssl, buf, n)
                   : recv(c->skt, buf, n, 0);
 }
-static ssize_t io_write(conn_t *c, const void *buf, size_t n) {
+static ssize_t io_write(conn_t *c, const void *buf, int n) {
     return c->ssl ? SSL_write(c->ssl, buf, n)
                   : send(c->skt, buf, n, 0);
 }
@@ -538,7 +538,7 @@ char resp[200+256+256];
                     UHTTPS_VERSION);
     resp [sizeof(resp)-1]=0;
     LOG (DEBUG, "redirection message:\n%s", resp);
-    io_write(&pData->conn, resp, strlen(resp));
+    io_write(&pData->conn, resp, (int) strlen(resp));
 return TRUE;
 } // SendRedirect2Https
 
@@ -845,7 +845,7 @@ THREAD_ID StartHttpThread (SOCKET ClientSocket, const SOCKADDR_STORAGE *sa, BOOL
             return INVALID_THREAD_VALUE;
         }
         // lik socket and ssl context
-        SSL_set_fd(pCur->conn.ssl, ClientSocket);
+        SSL_set_fd(pCur->conn.ssl, (int) ClientSocket);
         if (SSL_accept(pCur->conn.ssl) <= 0) 
         {
             LOG(DEBUG, "TLS handshake failed\n");
