@@ -181,5 +181,8 @@ void tls_dyn_unload(void) {
 }
 #endif // defined (_WIN32) && defined (UHTTPS_OPENSSL_DYNAMIC) 
 
-
+void __dummy_tls_dyn_load_function(void) {
+    // This function is never called. It is just here to force the linker to include this .c file
+    // when UHTTPS_OPENSSL_DYNAMIC is defined.
+}
 

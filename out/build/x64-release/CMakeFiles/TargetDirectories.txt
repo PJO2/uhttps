@@ -1,0 +1,6 @@
+C:/Users/ark/source/repos/PJO2/uhttps/out/build/x64-release/CMakeFiles/uhttps.dir
+C:/Users/ark/source/repos/PJO2/uhttps/out/build/x64-release/CMakeFiles/edit_cache.dir
+C:/Users/ark/source/repos/PJO2/uhttps/out/build/x64-release/CMakeFiles/rebuild_cache.dir
+C:/Users/ark/source/repos/PJO2/uhttps/out/build/x64-release/CMakeFiles/list_install_components.dir
+C:/Users/ark/source/repos/PJO2/uhttps/out/build/x64-release/CMakeFiles/install.dir
+C:/Users/ark/source/repos/PJO2/uhttps/out/build/x64-release/CMakeFiles/install/local.dir

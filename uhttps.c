@@ -313,11 +313,11 @@ SOCKET BindServiceSocket(const char *port, const char *sz_bind_addr)
 } // BindServiceSocket
 
 // read, send and close wrappers
-static ssize_t io_read(conn_t *c, void *buf, int n) {
+static ssize_t io_read(conn_t *c, void *buf, size_t n) {
     return c->ssl ? SSL_read(c->ssl, buf, n)
                   : recv(c->skt, buf, n, 0);
 }
-static ssize_t io_write(conn_t *c, const void *buf, int n) {
+static ssize_t io_write(conn_t *c, const void *buf, size_t n) {
     return c->ssl ? SSL_write(c->ssl, buf, n)
                   : send(c->skt, buf, n, 0);
 }
@@ -812,80 +812,76 @@ THREAD_ID StartHttpThread (SOCKET ClientSocket, const SOCKADDR_STORAGE *sa, BOOL
     if (nbThreads >= sSettings.max_threads)
     {
         LOG (WARN, "request rejected: too many simultaneous transfers\n");
-                return INVALID_THREAD_VALUE;
+        return INVALID_THREAD_VALUE;
+    }
+
+    // create a new ThreadData structure and populate it
+    pCur = (struct S_ThreadData *) calloc (1, sizeof *pCur);
+    if (pCur == NULL)
+    {
+        LOG (FATAL, "can not allocate memory\n");
+        exit(2);
+    }
+
+    // populate record
+    pCur->ThStatus = THREAD_STATE_INIT ; // thread pregnancy
+    pCur->sa = * sa;
+    pCur->buflen = DEFAULT_BUFLEN;
+    pCur->buf = (char *) malloc (pCur->buflen);
+    pCur->qwFileCurrentPos = 0;
+    time(& pCur->tStartTrf);
+    pCur->hFile = INVALID_FILE_VALUE;
+    pCur->conn.skt = ClientSocket;
+    pCur->conn.bTLS = bTLS;
+    if (pCur->conn.bTLS)
+    {
+        pCur->conn.ssl = SSL_new(g_tls_ctx);
+        if (pCur->conn.ssl==NULL) 
+        {  
+            LOG(ERROR, "Can not init SSL connection");
+            free (pCur->buf);
+            free (pCur);
+            closesocket(ClientSocket);
+            return INVALID_THREAD_VALUE;
+        }
+        // lik socket and ssl context
+        SSL_set_fd(pCur->conn.ssl, ClientSocket);
+        if (SSL_accept(pCur->conn.ssl) <= 0) 
+        {
+            LOG(DEBUG, "TLS handshake failed\n");
+            SSL_free(pCur->conn.ssl); pCur->conn.ssl = NULL;
+            closesocket(ClientSocket);
+            free(pCur->buf); free(pCur);                   
+            return INVALID_THREAD_VALUE;
+        }
+        LOG(INFO, "TLS %s / %s\n",
+            SSL_get_version(pCur->conn.ssl),
+            SSL_CIPHER_get_name(SSL_get_current_cipher(pCur->conn.ssl)));
+    }
+
+    if (pCur->buf == NULL)
+    {
+        LOG (FATAL, "can not allocate memory\n");
+        exit(2);
+    }
+
+    // Pass the socket id to a new thread and listen again
+    pCur->ThreadId = _startnewthread (HttpTransferThread, (void *) pCur);
+    if (pCur->ThreadId == INVALID_THREAD_VALUE)
+    {
+        LOG (ERROR, "can not allocate thread\n");
+        free (pCur->buf);
+        free (pCur);
     }
     else
     {
-        for (pCur=pThreadDataHead ; pCur!=NULL ; pCur=pCur->next);
-        // create a new ThreadData structure and populate it
-        pCur = (struct S_ThreadData *) calloc (1, sizeof *pCur);
-        if (pCur == NULL)
-        {
-            LOG (FATAL, "can not allocate memory\n");
-            exit(2);
-        }
-
-        // populate record
-        pCur->ThStatus = THREAD_STATE_INIT ; // thread pregnancy
-        pCur->sa = * sa;
-        pCur->buflen = DEFAULT_BUFLEN;
-        pCur->buf = (char *) malloc (pCur->buflen);
-        pCur->qwFileCurrentPos = 0;
-        time(& pCur->tStartTrf);
-                pCur->hFile = INVALID_FILE_VALUE;
-        pCur->conn.skt = ClientSocket;
-        pCur->conn.bTLS = bTLS;
-        if (pCur->conn.bTLS)
-        {
-             pCur->conn.ssl = SSL_new(g_tls_ctx);
-             if (pCur->conn.ssl==NULL) 
-             {  
-                LOG(ERROR, "Can not init SSL connection");
-                free (pCur->buf);
-                free (pCur);
-                closesocket(ClientSocket);
-                return INVALID_THREAD_VALUE;
-             }
-             // lik socket and ssl context
-             SSL_set_fd(pCur->conn.ssl, ClientSocket);
-             if (SSL_accept(pCur->conn.ssl) <= 0) 
-             {
-                LOG(DEBUG, "TLS handshake failed\n");
-                SSL_free(pCur->conn.ssl); pCur->conn.ssl = NULL;
-                closesocket(ClientSocket);
-                free(pCur->buf); free(pCur);                   
-                return INVALID_THREAD_VALUE;
-             }
-            LOG(INFO, "TLS %s / %s\n",
-                SSL_get_version(pCur->conn.ssl),
-                SSL_CIPHER_get_name(SSL_get_current_cipher(pCur->conn.ssl)));
-        }
-
-        if (pCur->buf == NULL)
-        {
-            LOG (FATAL, "can not allocate memory\n");
-            exit(2);
-        }
-
-        // Pass the socket id to a new thread and listen again
-        pCur->ThreadId = _startnewthread (HttpTransferThread, (void *) pCur);
-        if (pCur->ThreadId == INVALID_THREAD_VALUE)
-        {
-            LOG (ERROR, "can not allocate thread\n");
-            free (pCur->buf);
-            free (pCur);
-        }
-        else
-        {
-            // insert data at the head of the list
-            pCur->next = pThreadDataHead;
-            pThreadDataHead = pCur;
-            // register thread !
-            nbThreads++;
-        }
-        return pCur->ThreadId;
-    } // slot available
-    return INVALID_THREAD_VALUE; // should not happen
+        // insert data at the head of the list
+        pCur->next = pThreadDataHead;
+        pThreadDataHead = pCur;
+        // register thread !
+        nbThreads++;
+    }
+    return pCur->ThreadId;
 } // StartHttpThread
 
 
