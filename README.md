@@ -63,7 +63,7 @@ uhttps [-4|-6] [-p port] [-d dir] [-i addr] [-c type|-ct|-cb] [-g msec] [-s max]
 
 ### macOS
 
-First build the ssl library :
+First build and install the ssl library from the source code
 ```bash
 curl -L -o openssl-3.6.0.tgz https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz
 tar zxvf openssl-3.6.0.tgz
@@ -71,7 +71,7 @@ cd openssl-openssl-3.6.0
 ./Configure
 make
 # make test (optional)
-cp *.dylib /usr/local/lib
+make install
 ```
 
 Then build and run uhttps :
