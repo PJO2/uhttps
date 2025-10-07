@@ -70,6 +70,25 @@ make
 ./uhttps --tls --cert server.crt --key server.key -v
 ```
 
+### macOS
+
+First build the ssl library :
+```bash
+curl -L -o openssl.tgz https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz
+tar zxvf openssl.tgz
+cd openssl-openssl-3.6.0
+./Configure
+make
+#make test (optional)
+cp *.dylib /usr/local/lib
+```
+
+get uhttps by cloning the repository (see above) and move to the uhttps directory
+edit makefile to add openssl into the include path :
+CFLAGS := $(CFLAGS) -I ../openssl-openssl-3.6.0/include
+make
+
+
 ### Windows
 
 Use the prebuilt binaries:  
