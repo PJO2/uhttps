@@ -11,3 +11,4 @@ CppProperties.json
 version.aps
 WindowsBinaries/*.pdb
 *.pdb
+RC*
