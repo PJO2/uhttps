@@ -1,9 +1,0 @@
-# ninja log v6
-109	1940	7803495489312881	uhttps/CMakeFiles/uhttps.dir/uhttps.cpp.obj	6fa1b2307c8eab3b
-75	363	7803518277502885	CMakeFiles/uhttps.dir/log.c.obj	28fc1fc58513ac9d
-1942	2600	7803495510582694	uhttps/uhttps.exe	b5800dfe805af006
-57	141	7803518277315207	CMakeFiles/uhttps.dir/win-dyn-load-tls.c.obj	2a3051a86ac8fb17
-62	356	7803518277361172	CMakeFiles/uhttps.dir/addrs2txt.c.obj	259b2eeaf4fc710f
-68	360	7803518277403717	CMakeFiles/uhttps.dir/cmd_line.c.obj	10867157a555869c
-5	300	7803518286221917	build.ninja	aaeedc1488ae7d4b
-78	364	7815472844330453	CMakeFiles/uhttps.dir/cmd_line.c.obj	10867157a555869c
