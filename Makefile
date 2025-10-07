@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS= -O -D UNIX -Wall -I /Users/ark/Develop/C/openssl-openssl-3.6.0/include
-LDFLAGS= -lssl -lcrypto -lpthread
-CFLAGS := $(CFLAGS) -I ../openssl-openssl-3.6.0/include
 EXEC=uhttps
+
+CFLAGS  := $(IFLAGS) -O -D UNIX -Wall
+LDFLAGS += -lssl -lcrypto -lpthread
 
 
 all: $(EXEC)
