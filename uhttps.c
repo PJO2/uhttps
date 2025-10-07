@@ -188,7 +188,7 @@ int IsTransferCancelledByPeer(SOCKET skt)
 int GetSocketMSS(SOCKET skt)
 {
     int tcp_mss = 0;
-    int opt_len = sizeof tcp_mss;
+    socklen_t opt_len = sizeof tcp_mss;
     int iResult;
 
     iResult = getsockopt(skt, IPPROTO_TCP, TCP_MAXSEG, (char*) & tcp_mss , & opt_len);

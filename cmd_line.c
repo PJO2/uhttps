@@ -278,8 +278,9 @@ int ParseCmdLine(int argc, char *argv[])
                 break;
 
             default: 
-                char unk[3] = {'-', ch, 0};
-                die_bad("unknown option", unk);
+               { char unk[3] = {'-', ch, 0};
+                 die_bad("unknown option", unk); }
+                 break;
             } /* switch ch */
 
             /* If we consumed the rest of a clustered token for a value option,
