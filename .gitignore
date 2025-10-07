@@ -12,3 +12,4 @@ version.aps
 WindowsBinaries/*.pdb
 *.pdb
 RC*
+/out
