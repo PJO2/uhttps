@@ -1,6 +1,6 @@
 // --------------------------------------------------------
 // uhttps : a minimal web server which compile under MacOS, Linux and Windows
-// by Ph. Jounin September 2029
+// by Ph. Jounin September 2025
 // 
 // License: GPLv2
 // Sources : 

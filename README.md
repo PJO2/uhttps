@@ -29,7 +29,7 @@ If you only need **plain HTTP** (no TLS/HTTPS), check out
 ## Usage
 
 ```text
-uhttps [-4|-6] [-p port] [-d dir] [-i addr] [-c type|-ct|-cb] [-g msec] [-s max] [-v] [-x file]
+uhttps [-4|-6] [-p port] [-d dir] [-i addr] [-c type|-ct|-cb] [-g msec] [-s max] [-v] [-x file] [-e extension]
        [--tls] [--cert file] [--key file] [--redirect-http]
 ```
 
@@ -42,6 +42,7 @@ uhttps [-4|-6] [-p port] [-d dir] [-i addr] [-c type|-ct|-cb] [-g msec] [-s max]
    - `-ct` = `-c "text/plain"`  
    - `-cb` = `-c "application/octet-stream"`  
 - `-d` Set base directory for HTML content (default: current directory)  
+- '-e' Add default file extension (-e 'html' will serve 'file' as 'file.html' if 'file' is not found)
 - `-g` Delay transfers by *x* ms between frames (simulate slow link)  
 - `-i` Bind server to a specific IP address  
 - `-p` Change port (default: `8080` for HTTP, `8443` for HTTPS)  
