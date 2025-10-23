@@ -121,7 +121,9 @@ static inline int WSACleanup() { return 0; }
 
 
 // ----     strings
+// StringCchPrintf and snprintf create nul terminated strings
 #define StringCchPrintf  snprintf
+// StringCchCopy does not
 static inline int StringCchCopy(char* d, int n, const char* s) { strncpy(d, s, n); return 1; }
 static inline int CharUpperBuff(char* s, int n) { int p = 0;  while (*s != 0 && n-- > 0) { if (islower(*s)) *s = toupper(*s), p++; }  return p; }
 

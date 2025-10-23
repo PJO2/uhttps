@@ -40,6 +40,7 @@
             "\nContent & files:\n"
             "  -d DIR                Web root (default is current directory)\n"
             "  -x FILE               Default index file for directories (default %s)\n"
+            "  -e EXT                if url is not found, try with EXT appended (no default)\n"
             "  -c t|b|TYPE           Default content-type for unknown extensions\n"
             "                        't' or -ct => %s   |  'b' or -cb => %s\n"
             "\nConcurrency & logs:\n"
@@ -54,6 +55,7 @@
             DEFAULT_HTTP_PORT,
             DEFAULT_TLS_PORT,
             DEFAULT_HTMLFILE,
+             //  DEFAULT_AUTO_EXTENSION,  (NULL by default)
             DEFAULT_TEXT_TYPE,
             DEFAULT_BINARY_TYPE,
             DEFAULT_MAXTHREADS
@@ -69,7 +71,8 @@ struct S_Settings sSettings =
             DEFAULT_HTTP_PORT,                      // HTTP settings
             FALSE, "cert.pem", "private.key", DEFAULT_TLS_PORT, 
             DEFAULT_SSL_DIR, FALSE,                 // tls settings
-            ".", DEFAULT_HTMLFILE, NULL             // HTML settings
+            ".", DEFAULT_HTMLFILE, 
+            DEFAULT_AUTO_EXTENSION, NULL             // HTML settings
 };
 
 
@@ -260,6 +263,11 @@ int ParseCmdLine(int argc, char *argv[])
             case 'x':
                 TAKE_NEXT_VALUE("-x");
                 sSettings.szDefaultHtmlFile = (char *) val;
+                break;
+
+            case 'e':
+                TAKE_NEXT_VALUE("-e");
+                sSettings.szAutoExtension = (char *) val; // .html and hmtl are ok
                 break;
 
             case 'c':

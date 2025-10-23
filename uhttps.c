@@ -134,7 +134,7 @@ char *LastErrorText(void) {
     if (!n) _snprintf(buf, sizeof buf, "Windows error %lu", (unsigned long)err);
     return buf;
 #else
-    strncpy(buf, strerror(errno), sizeof buf); buf[sizeof buf-1]=0;
+    StringCchCopy(buf, sizeof buf, strerror(errno)); buf[sizeof buf-1]=0;
     return buf;
 #endif
 } // LastErrorText
@@ -575,13 +575,31 @@ int DecodeHttpRequest(struct S_ThreadData *pData, size_t request_length)
         return HTTP_BADREQUEST;
     }
 
-        // dry-run : try to open it (sanaty checks not done)
+    // dry-run : try to open it (sanaty checks not done)
     pData->hFile = fopen (pData->url_filename, "rb");
-    if (pData->hFile==INVALID_FILE_VALUE)   
+    if (     pData->hFile==INVALID_FILE_VALUE 
+         &&  sSettings.szAutoExtension != NULL
+         && (strrchr (pData->url_filename, '.') > strrchr (pData->url_filename, '/'))  )
+    {   
+        // second chance: try appending szAutoExtension (filename has no extension)
+        char szWithExt[MAX_PATH*2];  // *2 to remove a stupide gcc warning
+        StringCchPrintf (szWithExt, sizeof szWithExt, "%s%s%s",
+                         pData->url_filename, 
+                         sSettings.szAutoExtension[0]=='.' ? "" : ".",
+                         sSettings.szAutoExtension);
+        szWithExt[sizeof pData->url_filename - 1] = 0; // and then ensure it will fit into url_filename
+        LOG (DEBUG, "dry-run: 2nd chance with %s \n", szWithExt);
+        pData->hFile = fopen (szWithExt, "rb");
+        if (pData->hFile!=INVALID_FILE_VALUE)   // 2nd chance OK -> override url_filename
+        {
+            strcpy (pData->url_filename, szWithExt);  // szWithExt has already been "resized"
+        } 
+    } // 2nd chance with szAutoExtension
+    if (pData->hFile==INVALID_FILE_VALUE)
     {
         LOG (WARN, "file %s not found/access denied\n", pData->url_filename);
         return HTTP_NOTFOUND;
-    }
+    } 
     fclose (pData->hFile);
     pData->hFile=INVALID_FILE_VALUE;
 

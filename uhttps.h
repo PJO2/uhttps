@@ -26,6 +26,7 @@ typedef int BOOL;
 #define  DEFAULT_TLS_PORT       "8443"    
 #define  DEFAULT_MAXTHREADS     1024       // maximum simultaneous connections
 #define  DEFAULT_HTMLFILE       "index.html" // if request is "GET / HTTP/1.1"
+#define  DEFAULT_AUTO_EXTENSION NULL  // try to append an extension if a file name is not found
 #define  DEFAULT_BINARY_TYPE    "application/octet-stream"
 #define  DEFAULT_TEXT_TYPE      "text/plain"
 #define  DEFAULT_SSL_DIR        "."
@@ -38,7 +39,7 @@ typedef int BOOL;
 // ---------------------------------------------------------
 // sSettings is a global variable
 // ---------------------------------------------------------
-// uweb Settings
+// uhhtps Settings
 struct S_Settings
 {
 	// logging
@@ -63,6 +64,7 @@ struct S_Settings
         // HTML settings
         char  *szDirectory;
         const char  *szDefaultHtmlFile;
+        const char  *szAutoExtension;
         const char  *szDefaultContentType;      // all files accepted with this content-type
 };
 extern struct S_Settings sSettings;
