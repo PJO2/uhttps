@@ -577,9 +577,10 @@ int DecodeHttpRequest(struct S_ThreadData *pData, size_t request_length)
 
     // dry-run : try to open it (sanaty checks not done)
     pData->hFile = fopen (pData->url_filename, "rb");
+    // try to add autoextension if it exists :) and filename has none already set
     if (     pData->hFile==INVALID_FILE_VALUE 
          &&  sSettings.szAutoExtension != NULL
-         && (strrchr (pData->url_filename, '.') > strrchr (pData->url_filename, '/'))  )
+         && (strrchr (pData->url_filename, '.') < strrchr (pData->url_filename, '/'))  )
     {   
         // second chance: try appending szAutoExtension (filename has no extension)
         char szWithExt[MAX_PATH*2];  // *2 to remove a stupide gcc warning
